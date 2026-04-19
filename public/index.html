@@ -1,0 +1,1932 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Bot 管理后台</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.3em;
+        }
+        
+        .status-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .status-disconnected { background: #ff4757; color: white; }
+        .status-authenticated { background: #ffa502; color: white; }
+        .status-qr { background: #2ed573; color: white; }
+        .status-ready { background: #1e90ff; color: white; }
+        
+        #qrImage {
+            max-width: 300px;
+            display: block;
+            margin: 20px auto;
+            border: 5px solid #667eea;
+            border-radius: 10px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+        
+        .btn-primary { background: #667eea; color: white; }
+        .btn-danger { background: #ff4757; color: white; }
+        .btn-success { background: #2ed573; color: white; }
+        .btn-warning { background: #ffa502; color: white; }
+        .btn-info { background: #3498db; color: white; }
+        .btn-secondary { background: #95a5a6; color: white; }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        
+        .chat-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .chat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .chat-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .chat-item.selected {
+            background: #e8f0fe;
+            border-left: 3px solid #667eea;
+        }
+        
+        .chat-name {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .chat-preview {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .chat-tag {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        
+        .tag-group { background: #f0f0f0; color: #666; }
+        .tag-private { background: #e8f5e9; color: #2e7d32; }
+        
+        .messages {
+            max-height: 250px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .message {
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .message.received {
+            background: white;
+            border-left: 3px solid #667eea;
+        }
+        
+        .message.sent {
+            background: #e8f5e9;
+            border-right: 3px solid #2ed573;
+            text-align: right;
+        }
+        
+        .message-time {
+            font-size: 11px;
+            color: #888;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 25px;
+            background: #f0f0f0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        .list-group {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .list-item:last-child {
+            border-bottom: none;
+        }
+        
+        .list-item-content {
+            flex: 1;
+        }
+        
+        .list-item-title {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .list-item-subtitle {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
+        .badge-info { background: #d1ecf1; color: #0c5460; }
+        
+        .tab-nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .tab-btn {
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .tab-btn.active {
+            background: white;
+            color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .checkbox-group input {
+            width: auto;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: #888;
+        }
+        
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .checkbox-wrapper input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+
+        .upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f8f9fa;
+        }
+
+        .file-info {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 WhatsApp Bot 管理后台</h1>
+        
+        <div class="card">
+            <h2>
+                连接状态
+                <span id="statusBadge" class="status-badge status-disconnected">未连接</span>
+            </h2>
+            <div id="qrSection" style="display: none;">
+                <p style="text-align: center; margin-bottom: 10px;">请扫码登录</p>
+                <img id="qrImage" src="" alt="QR Code">
+            </div>
+        </div>
+        
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="showTab('broadcast')">📢 群发消息</button>
+            <button class="tab-btn" onclick="showTab('autoreply')">🤖 自动回复</button>
+            <button class="tab-btn" onclick="showTab('schedule')">⏰ 定时任务</button>
+            <button class="tab-btn" onclick="showTab('group')">👥 群管理</button>
+            <button class="tab-btn" onclick="showTab('chat')">💬 聊天管理</button>
+            <button class="tab-btn" onclick="showTab('media')">📎 发送媒体</button>
+            <button class="tab-btn" onclick="showTab('sticker')">💫 发送贴纸</button>
+            <button class="tab-btn" onclick="showTab('location')">📍 发送位置</button>
+            <button class="tab-btn" onclick="showTab('poll')">📊 发送投票</button>
+            <button class="tab-btn" onclick="showTab('messages')">📩 消息记录</button>
+            <button class="tab-btn" onclick="showTab('search')">🔍 搜索消息</button>
+            <button class="tab-btn" onclick="showTab('channel')">📢 频道</button>
+            <button class="tab-btn" onclick="showTab('label')">🏷️ 标签管理</button>
+            <button class="tab-btn" onclick="showTab('profile')">👤 个人信息</button>
+            <button class="tab-btn" onclick="showTab('contact')">👤 联系人查询</button>
+            <button class="tab-btn" onclick="showTab('stats')">📊 数据统计</button>
+        </div>
+        
+        <div id="broadcast" class="tab-content active">
+            <div class="grid">
+                <div class="card">
+                    <h2>📢 群发消息</h2>
+                    <div class="form-group">
+                        <label>消息内容</label>
+                        <textarea id="broadcastMessage" placeholder="输入要发送的消息...&#10;使用 {name} 插入联系人名字"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>发送间隔 (毫秒)</label>
+                            <input type="number" id="broadcastInterval" value="10000" min="1000" step="1000">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>群发对象</label>
+                        <select id="targetType" onchange="toggleManualInput()">
+                            <option value="chats">已有聊天记录</option>
+                            <option value="contacts">所有联系人 (包括未聊天)</option>
+                            <option value="manual">手动输入号码</option>
+                        </select>
+                    </div>
+                    <div id="manualInputSection" style="display: none;">
+                        <div class="form-group">
+                            <label>手机号码列表 (每行一个，格式: 手机号|姓名)</label>
+                            <textarea id="manualNumbers" placeholder="86138xxxxxxx|张三&#10;86139xxxxxxx|李四" rows="5"></textarea>
+                        </div>
+                    </div>
+                    <button class="btn btn-info" onclick="testGetContacts()">测试获取联系人</button>
+                    <button class="btn btn-success" onclick="exportContacts()">导出联系人</button>
+                    <div id="contactCount" style="margin-top: 10px; font-weight: bold;"></div>
+                    
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="excludeGroups" checked>
+                        <label for="excludeGroups">排除群组</label>
+                    </div>
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="personalize" checked>
+                        <label for="personalize">自动插入联系人名字 (使用 {name})</label>
+                    </div>
+                    <button class="btn btn-primary" id="startBroadcast" onclick="startBroadcast()">开始群发</button>
+                    <button class="btn btn-danger" id="stopBroadcast" onclick="stopBroadcast()" disabled>停止</button>
+                    
+                    <div id="broadcastProgress" style="display: none; margin-top: 15px;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+                        </div>
+                        <p id="progressText">准备中...</p>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>💬 发送消息</h2>
+                    <div class="form-group">
+                        <label>选择联系人</label>
+                        <select id="chatSelect" onchange="selectChat()">
+                            <option value="">-- 选择联系人 --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>消息内容</label>
+                        <textarea id="singleMessage" placeholder="输入消息..."></textarea>
+                    </div>
+                    <button class="btn btn-success" onclick="sendSingleMessage()">发送</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="autoreply" class="tab-content">
+            <div class="card">
+                <h2>🤖 自动回复规则</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>关键词</label>
+                        <input type="text" id="arKeyword" placeholder="触发关键词">
+                    </div>
+                    <div class="form-group">
+                        <label>匹配方式</label>
+                        <select id="arMatchType">
+                            <option value="keyword">包含关键词</option>
+                            <option value="exact">完全匹配</option>
+                            <option value="regex">正则表达式</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>回复内容</label>
+                    <textarea id="arReply" placeholder="自动回复的消息内容..."></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="addAutoReply()">添加规则</button>
+                
+                <div class="list-group" style="margin-top: 20px;">
+                    <div id="autoReplyList">
+                        <div class="empty-state">暂无自动回复规则</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="schedule" class="tab-content">
+            <div class="card">
+                <h2>⏰ 定时任务</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>任务名称</label>
+                        <input type="text" id="taskName" placeholder="任务名称">
+                    </div>
+                    <div class="form-group">
+                        <label>任务类型</label>
+                        <select id="taskType" onchange="toggleTaskTime()">
+                            <option value="once">执行一次</option>
+                            <option value="daily">每天执行</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" id="onceTimeGroup">
+                        <label>执行时间</label>
+                        <input type="datetime-local" id="taskTime">
+                    </div>
+                    <div class="form-group" id="dailyTimeGroup" style="display: none;">
+                        <label>执行时间 (小时:分钟)</label>
+                        <input type="time" id="taskDailyTime" value="09:00">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>消息内容</label>
+                    <textarea id="taskMessage" placeholder="定时发送的消息内容..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>发送对象</label>
+                    <select id="taskTarget">
+                        <option value="all">所有聊天</option>
+                        <option value="private">仅私聊</option>
+                        <option value="groups">仅群组</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="addScheduledTask()">添加任务</button>
+                
+                <div class="list-group" style="margin-top: 20px;">
+                    <div id="scheduledTaskList">
+                        <div class="empty-state">暂无定时任务</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="group" class="tab-content">
+            <div class="grid">
+                <div class="card">
+                    <h2>👥 创建群组</h2>
+                    <div class="form-group">
+                        <label>群组名称</label>
+                        <input type="text" id="newGroupName" placeholder="群组名称">
+                    </div>
+                    <div class="form-group">
+                        <label>成员 (手机号，每行一个)</label>
+                        <textarea id="newGroupMembers" placeholder="86138xxxx@c.us&#10;86139xxxx@c.us"></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="createGroup()">创建群组</button>
+                </div>
+                
+                <div class="card">
+                    <h2>📋 群组管理</h2>
+                    <div class="form-group">
+                        <label>选择群组</label>
+                        <select id="groupSelect" onchange="loadGroupInfo()">
+                            <option value="">-- 选择群组 --</option>
+                        </select>
+                    </div>
+                    <div id="groupActions" style="display: none;">
+                        <div class="form-group">
+                            <label>添加成员 (手机号，每行一个)</label>
+                            <textarea id="addGroupMembers" placeholder="86138xxxx@c.us"></textarea>
+                        </div>
+                        <button class="btn btn-success btn-sm" onclick="addGroupMembers()">添加成员</button>
+                        <button class="btn btn-danger btn-sm" onclick="removeGroupMembers()">移除成员</button>
+                        <button class="btn btn-warning btn-sm" onclick="leaveGroup()">退出群组</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="chat" class="tab-content">
+            <div class="card">
+                <h2>💬 聊天管理</h2>
+                <div class="form-group">
+                    <label>选择聊天</label>
+                    <select id="manageChatSelect" onchange="loadChatActions()">
+                        <option value="">-- 选择聊天 --</option>
+                    </select>
+                </div>
+                <div id="chatActions" style="display: none;">
+                    <button class="btn btn-info btn-sm" onclick="markSeen()">标记已读</button>
+                    <button class="btn btn-primary btn-sm" onclick="pinChat(true)">置顶</button>
+                    <button class="btn btn-secondary btn-sm" onclick="pinChat(false)">取消置顶</button>
+                    <button class="btn btn-warning btn-sm" onclick="archiveChat()">归档</button>
+                    <button class="btn btn-success btn-sm" onclick="muteChat()">免打扰</button>
+                    <button class="btn btn-danger btn-sm" onclick="unmuteChat()">取消免打扰</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="media" class="tab-content">
+            <div class="grid">
+                <div class="card">
+                    <h2>📎 上传媒体文件</h2>
+                    <div class="upload-area" onclick="document.getElementById('mediaFile').click()">
+                        <p>点击选择文件或拖拽到这里</p>
+                        <input type="file" id="mediaFile" style="display: none;" onchange="handleFileSelect(event)">
+                    </div>
+                    <div id="fileInfo" class="file-info" style="display: none;"></div>
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label>发送给</label>
+                        <select id="mediaChatSelect">
+                            <option value="">-- 选择联系人 --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>图片描述 (可选)</label>
+                        <input type="text" id="mediaCaption" placeholder="图片描述">
+                    </div>
+                    <button class="btn btn-primary" onclick="sendMedia()">发送媒体</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="messages" class="tab-content">
+            <div class="grid">
+                <div class="card">
+                    <h2>📱 聊天列表</h2>
+                    <div class="chat-list" id="chatList">
+                        <div class="empty-state">加载中...</div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>📩 接收消息</h2>
+                    <div class="messages" id="receivedMessages">
+                        <div class="empty-state">等待新消息...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="contact" class="tab-content">
+            <div class="grid">
+                <div class="card">
+                    <h2>👤 联系人查询</h2>
+                    <div class="form-group">
+                        <label>输入联系人 ID 或手机号</label>
+                        <input type="text" id="contactId" placeholder="86138xxxx@c.us">
+                    </div>
+                    <button class="btn btn-primary" onclick="lookupContact()">查询</button>
+                    
+                    <div id="contactInfo" style="margin-top: 20px; display: none;">
+                        <div class="form-group">
+                            <label>名字</label>
+                            <input type="text" id="contactName" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>昵称</label>
+                            <input type="text" id="contactPushname" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>头像</label>
+                            <img id="contactProfilePic" style="max-width: 200px; border-radius: 10px;">
+                        </div>
+                        <div class="form-group">
+                            <label>是否企业号</label>
+                            <input type="text" id="contactIsBusiness" readonly>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="stats" class="tab-content">
+            <div class="card">
+                <h2>📊 数据统计</h2>
+                <button class="btn btn-primary" onclick="loadStats()">刷新统计</button>
+                <div id="statsContent" style="margin-top: 20px;">
+                    <div class="empty-state">点击刷新查看统计</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="sticker" class="tab-content">
+            <div class="grid">
+                <div class="card">
+                    <h2>💫 发送贴纸</h2>
+                    <div class="form-group">
+                        <label>选择联系人</label>
+                        <select id="stickerChatSelect">
+                            <option value="">-- 选择联系人 --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>图片/动图 URL</label>
+                        <input type="text" id="stickerUrl" placeholder="https://example.com/image.png">
+                    </div>
+                    <button class="btn btn-primary" onclick="sendSticker()">发送贴纸</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="location" class="tab-content">
+            <div class="grid">
+                <div class="card">
+                    <h2>📍 发送位置</h2>
+                    <div class="form-group">
+                        <label>选择联系人</label>
+                        <select id="locationChatSelect">
+                            <option value="">-- 选择联系人 --</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>纬度</label>
+                            <input type="text" id="locationLat" placeholder="37.422" value="37.422">
+                        </div>
+                        <div class="form-group">
+                            <label>经度</label>
+                            <input type="text" id="locationLng" placeholder="-122.084" value="-122.084">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>位置名称 (可选)</label>
+                        <input type="text" id="locationTitle" placeholder="Googleplex">
+                    </div>
+                    <button class="btn btn-primary" onclick="sendLocation()">发送位置</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="poll" class="tab-content">
+            <div class="grid">
+                <div class="card">
+                    <h2>📊 发送投票</h2>
+                    <div class="form-group">
+                        <label>选择联系人/群组</label>
+                        <select id="pollChatSelect">
+                            <option value="">-- 选择 --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>问题</label>
+                        <input type="text" id="pollQuestion" placeholder="你喜欢什么颜色？">
+                    </div>
+                    <div class="form-group">
+                        <label>选项 (每行一个)</label>
+                        <textarea id="pollOptions" placeholder="红色&#10;蓝色&#10;绿色"></textarea>
+                    </div>
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="pollMultiple">
+                        <label for="pollMultiple">允许多选</label>
+                    </div>
+                    <button class="btn btn-primary" onclick="sendPoll()">发送投票</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="search" class="tab-content">
+            <div class="card">
+                <h2>🔍 搜索消息</h2>
+                <div class="form-group">
+                    <label>搜索关键词</label>
+                    <input type="text" id="searchQuery" placeholder="输入搜索内容...">
+                </div>
+                <button class="btn btn-primary" onclick="searchMessages()">搜索</button>
+                <div id="searchResults" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+        
+        <div id="channel" class="tab-content">
+            <div class="grid">
+                <div class="card">
+                    <h2>📢 频道列表</h2>
+                    <button class="btn btn-primary" onclick="loadChannels()">刷新</button>
+                    <div id="channelList" style="margin-top: 15px;"></div>
+                </div>
+                <div class="card">
+                    <h2>创建频道</h2>
+                    <div class="form-group">
+                        <label>频道名称</label>
+                        <input type="text" id="channelName" placeholder="频道名称">
+                    </div>
+                    <div class="form-group">
+                        <label>描述</label>
+                        <textarea id="channelDesc" placeholder="频道描述"></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="createChannel()">创建</button>
+                </div>
+            </div>
+            <div class="card" style="margin-top: 20px;">
+                <h2>➕ 加入群组</h2>
+                <div class="form-group">
+                    <label>邀请链接</label>
+                    <input type="text" id="joinLink" placeholder="邀请链接">
+                </div>
+                <button class="btn btn-primary" onclick="joinGroup()">加入</button>
+            </div>
+        </div>
+        
+        <div id="label" class="tab-content">
+            <div class="grid">
+                <div class="card">
+                    <h2>🏷️ 标签列表</h2>
+                    <button class="btn btn-primary" onclick="loadLabels()">刷新</button>
+                    <div id="labelList" style="margin-top: 15px;"></div>
+                </div>
+                <div class="card">
+                    <h2>添加标签</h2>
+                    <div class="form-group">
+                        <label>选择聊天</label>
+                        <select id="labelChatSelect">
+                            <option value="">-- 选择 --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>选择标签</label>
+                        <select id="labelSelect">
+                            <option value="">-- 选择标签 --</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-success" onclick="addLabelToChat()">添加标签</button>
+                    <button class="btn btn-danger" onclick="removeLabelFromChat()">移除标签</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="profile" class="tab-content">
+            <div class="grid">
+                <div class="card">
+                    <h2>👤 修改昵称</h2>
+                    <div class="form-group">
+                        <label>新昵称</label>
+                        <input type="text" id="newProfileName" placeholder="输入新昵称">
+                    </div>
+                    <button class="btn btn-primary" onclick="updateProfileName()">修改</button>
+                </div>
+                <div class="card">
+                    <h2>📝 修改状态</h2>
+                    <div class="form-group">
+                        <label>新状态</label>
+                        <textarea id="newProfileStatus" placeholder="输入新状态"></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="updateProfileStatus()">修改</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const socket = io();
+        let selectedChat = null;
+        
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+        
+        socket.on('status', (data) => {
+            updateStatus(data.status, data.qr);
+        });
+        
+        socket.on('message', (data) => {
+            addMessage(data);
+        });
+        
+        socket.on('broadcast-progress', (data) => {
+            updateBroadcastProgress(data);
+        });
+        
+        socket.on('auto-reply-rules', (data) => {
+            renderAutoReplyRules(data.rules);
+        });
+        
+        socket.on('scheduled-tasks', (data) => {
+            renderScheduledTasks(data.tasks);
+        });
+
+        socket.on('contact-test-progress', (data) => {
+            updateContactTestProgress(data);
+        });
+
+        socket.on('scheduled-task', (data) => {
+            alert(`定时任务 "${data.name}" 已执行，发送了 ${data.sentCount} 条消息`);
+        });
+
+        socket.on('auto-reply', (data) => {
+            console.log('Auto reply triggered:', data);
+        });
+        
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+            
+            const tabsNeedingChats = ['messages', 'group', 'chat', 'media', 'location', 'poll', 'sticker', 'label'];
+            if (tabsNeedingChats.includes(tabId)) {
+                loadChats();
+            }
+            
+            if (tabId === 'channel') {
+                loadChannels();
+            }
+            
+            if (tabId === 'label') {
+                loadLabels();
+            }
+        }
+        
+        function updateStatus(status, qr) {
+            const badge = document.getElementById('statusBadge');
+            const qrSection = document.getElementById('qrSection');
+            const qrImage = document.getElementById('qrImage');
+            
+            badge.className = 'status-badge status-' + status;
+            badge.textContent = {
+                'disconnected': '未连接',
+                'authenticated': '验证中',
+                'qr': '等待扫码',
+                'ready': '已就绪'
+            }[status] || status;
+            
+            if (status === 'qr' && qr) {
+                qrSection.style.display = 'block';
+                qrImage.src = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(qr);
+            } else {
+                qrSection.style.display = 'none';
+            }
+            
+            if (status === 'ready') {
+                loadChats();
+            }
+        }
+        
+        async function loadChats() {
+            const response = await fetch('/api/chats');
+            const data = await response.json();
+            
+            const chatList = document.getElementById('chatList');
+            const chatSelect = document.getElementById('chatSelect');
+            const groupSelect = document.getElementById('groupSelect');
+            const manageChatSelect = document.getElementById('manageChatSelect');
+            const mediaChatSelect = document.getElementById('mediaChatSelect');
+            const locationChatSelect = document.getElementById('locationChatSelect');
+            const pollChatSelect = document.getElementById('pollChatSelect');
+            const stickerChatSelect = document.getElementById('stickerChatSelect');
+            const labelChatSelect = document.getElementById('labelChatSelect');
+            
+            if (chatList) {
+                chatList.innerHTML = '';
+                data.chats.forEach(chat => {
+                    const chatItem = document.createElement('div');
+                    chatItem.className = 'chat-item';
+                    chatItem.innerHTML = `
+                        <div>
+                            <div class="chat-name">${chat.name || chat.id}</div>
+                            <div class="chat-preview">${chat.lastMessage || ''}</div>
+                        </div>
+                        <span class="chat-tag ${chat.isGroup ? 'tag-group' : 'tag-private'}">
+                            ${chat.isGroup ? '群组' : '私聊'}
+                        </span>
+                    `;
+                    chatItem.onclick = () => selectChatItem(chat, chatItem);
+                    chatList.appendChild(chatItem);
+                });
+                
+                if (data.chats.length === 0) {
+                    chatList.innerHTML = '<div class="empty-state">暂无聊天记录</div>';
+                }
+            }
+            
+            [chatSelect, groupSelect, manageChatSelect, mediaChatSelect, locationChatSelect, pollChatSelect, stickerChatSelect, labelChatSelect].forEach(select => {
+                if (select) {
+                    select.innerHTML = '<option value="">-- 选择 --</option>';
+                    data.chats.forEach(chat => {
+                        const option = document.createElement('option');
+                        option.value = chat.id;
+                        option.textContent = chat.name || chat.id;
+                        select.appendChild(option);
+                    });
+                }
+            });
+        }
+        
+        function selectChatItem(chat, element) {
+            selectedChat = chat;
+            document.querySelectorAll('.chat-item').forEach(i => i.classList.remove('selected'));
+            element.classList.add('selected');
+        }
+        
+        function selectChat() {
+            const chatId = document.getElementById('chatSelect').value;
+            selectedChat = { id: chatId };
+        }
+        
+        async function sendSingleMessage() {
+            const message = document.getElementById('singleMessage').value;
+            if (!selectedChat || !selectedChat.id) {
+                alert('请选择联系人');
+                return;
+            }
+            if (!message) {
+                alert('请输入消息内容');
+                return;
+            }
+            
+            const response = await fetch('/api/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId: selectedChat.id, message })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                alert('发送成功！');
+                document.getElementById('singleMessage').value = '';
+            } else {
+                alert('发送失败: ' + result.error);
+            }
+        }
+        
+        function toggleManualInput() {
+            const targetType = document.getElementById('targetType').value;
+            document.getElementById('manualInputSection').style.display = targetType === 'manual' ? 'block' : 'none';
+        }
+        
+        async function testGetContacts() {
+            const targetType = document.getElementById('targetType').value;
+            
+            if (targetType === 'manual') {
+                const numbersText = document.getElementById('manualNumbers').value;
+                const lines = numbersText.split('\n').filter(l => l.trim());
+                document.getElementById('contactCount').innerHTML = '<span style="color:green">手动输入 ' + lines.length + ' 个号码</span>';
+                return;
+            }
+            
+            const response = await fetch('/api/contacts-list');
+            const data = await response.json();
+            if (data.error) {
+                document.getElementById('contactCount').innerHTML = '<span style="color:red">错误: ' + data.error + '</span>';
+            } else {
+                document.getElementById('contactCount').innerHTML = '<span style="color:green">获取到 ' + data.total + ' 个联系人</span>';
+                console.log('Contacts:', data.contacts?.slice(0, 3));
+            }
+        }
+        
+        function exportContacts() {
+            window.open('/api/export-contacts', '_blank');
+        }
+
+        async function startContactTestLoop() {
+            const maxAttempts = parseInt(document.getElementById('maxAttempts').value);
+            const interval = parseInt(document.getElementById('testInterval').value);
+            const stopOnSuccess = document.getElementById('stopOnSuccess').checked;
+            
+            const response = await fetch('/api/contact-test/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ maxAttempts, interval, stopOnSuccess })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                document.getElementById('startTestLoop').disabled = true;
+                document.getElementById('stopTestLoop').disabled = false;
+                document.getElementById('testStatus').textContent = '运行中...';
+            } else {
+                alert('启动失败: ' + result.error);
+            }
+        }
+
+        async function stopContactTestLoop() {
+            const response = await fetch('/api/contact-test/stop', {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                document.getElementById('startTestLoop').disabled = false;
+                document.getElementById('stopTestLoop').disabled = true;
+                document.getElementById('testStatus').textContent = '已停止';
+            }
+        }
+
+        function updateContactTestProgress(data) {
+            document.getElementById('testAttempts').textContent = data.attempts;
+            
+            if (data.running) {
+                document.getElementById('testStatus').textContent = '运行中...';
+                document.getElementById('startTestLoop').disabled = true;
+                document.getElementById('stopTestLoop').disabled = false;
+            } else if (data.attempts > 0) {
+                document.getElementById('testStatus').textContent = '已停止';
+                document.getElementById('startTestLoop').disabled = false;
+                document.getElementById('stopTestLoop').disabled = true;
+            }
+            
+            if (data.lastResult) {
+                if (data.lastResult.success) {
+                    document.getElementById('testResult').innerHTML = 
+                        '<span style="color:green">成功! 获取到 ' + data.lastResult.count + ' 个联系人</span>';
+                } else if (data.lastResult.error) {
+                    document.getElementById('testResult').innerHTML = 
+                        '<span style="color:red">错误: ' + data.lastResult.error + '</span>';
+                } else {
+                    document.getElementById('testResult').textContent = '0 个联系人';
+                }
+            }
+        }
+        
+        async function startBroadcast() {
+            const message = document.getElementById('broadcastMessage').value;
+            const interval = parseInt(document.getElementById('broadcastInterval').value);
+            const excludeGroups = document.getElementById('excludeGroups').checked;
+            const personalize = document.getElementById('personalize').checked;
+            const targetType = document.getElementById('targetType').value;
+            const manualNumbers = document.getElementById('manualNumbers')?.value;
+            
+            if (!message) {
+                alert('请输入消息内容');
+                return;
+            }
+            
+            const response = await fetch('/api/broadcast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message, interval, excludeGroups, personalize, targetType, manualNumbers })
+            });
+            
+            const result = await response.json();
+            if (!result.success) {
+                alert('启动失败: ' + result.error);
+            }
+        }
+        
+        async function stopBroadcast() {
+            await fetch('/api/broadcast-stop', { method: 'POST' });
+        }
+        
+        function updateBroadcastProgress(data) {
+            const progressDiv = document.getElementById('broadcastProgress');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const startBtn = document.getElementById('startBroadcast');
+            const stopBtn = document.getElementById('stopBroadcast');
+            
+            if (data.running || data.current > 0) {
+                progressDiv.style.display = 'block';
+                startBtn.disabled = true;
+                stopBtn.disabled = !data.running;
+                
+                const percent = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
+                progressFill.style.width = percent + '%';
+                progressFill.textContent = percent + '%';
+                progressText.textContent = `正在发送: ${data.current} / ${data.total}`;
+            } else {
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                progressText.textContent = `完成！发送: ${data.results.filter(r => r.status === 'success').length}, 失败: ${data.results.filter(r => r.status === 'failed').length}`;
+            }
+        }
+        
+        function addMessage(data) {
+            const messagesDiv = document.getElementById('receivedMessages');
+            const emptyMsg = messagesDiv.querySelector('.empty-state');
+            if (emptyMsg) emptyMsg.remove();
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message received';
+            const time = new Date(data.timestamp * 1000).toLocaleTimeString();
+            msgDiv.innerHTML = `
+                <strong>${data.name || data.from}</strong>
+                <span class="message-time">${time}</span>
+                <br>${data.body || '[消息类型: ' + data.type + ']'}
+            `;
+            messagesDiv.insertBefore(msgDiv, messagesDiv.firstChild);
+            
+            if (messagesDiv.children.length > 50) {
+                messagesDiv.removeChild(messagesDiv.lastChild);
+            }
+        }
+        
+        async function addAutoReply() {
+            const keyword = document.getElementById('arKeyword').value;
+            const reply = document.getElementById('arReply').value;
+            const matchType = document.getElementById('arMatchType').value;
+            
+            if (!keyword || !reply) {
+                alert('请填写关键词和回复内容');
+                return;
+            }
+            
+            const response = await fetch('/api/auto-reply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keyword, reply, matchType })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                document.getElementById('arKeyword').value = '';
+                document.getElementById('arReply').value = '';
+                loadAutoReplyRules();
+            } else {
+                alert('添加失败: ' + result.error);
+            }
+        }
+        
+        async function loadAutoReplyRules() {
+            const response = await fetch('/api/auto-reply');
+            const data = await response.json();
+            renderAutoReplyRules(data.rules);
+        }
+        
+        function renderAutoReplyRules(rules) {
+            const list = document.getElementById('autoReplyList');
+            if (!rules || rules.length === 0) {
+                list.innerHTML = '<div class="empty-state">暂无自动回复规则</div>';
+                return;
+            }
+            
+            list.innerHTML = rules.map(rule => `
+                <div class="list-item">
+                    <div class="list-item-content">
+                        <div class="list-item-title">${rule.keyword} <span class="badge badge-info">${rule.matchType}</span></div>
+                        <div class="list-item-subtitle">回复: ${rule.reply}</div>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm ${rule.enabled ? 'btn-warning' : 'btn-secondary'}" onclick="toggleAutoReply(${rule.id}, ${!rule.enabled})">
+                            ${rule.enabled ? '禁用' : '启用'}
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteAutoReply(${rule.id})">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        async function toggleAutoReply(id, enabled) {
+            await fetch(`/api/auto-reply/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled })
+            });
+            loadAutoReplyRules();
+        }
+        
+        async function deleteAutoReply(id) {
+            await fetch(`/api/auto-reply/${id}`, { method: 'DELETE' });
+            loadAutoReplyRules();
+        }
+        
+        function toggleTaskTime() {
+            const type = document.getElementById('taskType').value;
+            document.getElementById('onceTimeGroup').style.display = type === 'once' ? 'block' : 'none';
+            document.getElementById('dailyTimeGroup').style.display = type === 'daily' ? 'block' : 'none';
+        }
+        
+        async function addScheduledTask() {
+            const name = document.getElementById('taskName').value;
+            const type = document.getElementById('taskType').value;
+            const time = document.getElementById('taskTime').value;
+            const dailyTime = document.getElementById('taskDailyTime').value;
+            const message = document.getElementById('taskMessage').value;
+            const targetType = document.getElementById('taskTarget').value;
+            
+            if (!name || !message) {
+                alert('请填写任务名称和消息内容');
+                return;
+            }
+            
+            const taskData = {
+                name,
+                type,
+                message,
+                targetType
+            };
+            
+            if (type === 'once' && time) {
+                taskData.time = time;
+            } else if (type === 'daily' && dailyTime) {
+                const [hour, minute] = dailyTime.split(':');
+                taskData.hour = parseInt(hour);
+                taskData.minute = parseInt(minute);
+            }
+            
+            const response = await fetch('/api/scheduled-tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(taskData)
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                alert('任务添加成功！');
+                document.getElementById('taskName').value = '';
+                document.getElementById('taskMessage').value = '';
+                loadScheduledTasks();
+            } else {
+                alert('添加失败: ' + result.error);
+            }
+        }
+        
+        async function loadScheduledTasks() {
+            const response = await fetch('/api/scheduled-tasks');
+            const data = await response.json();
+            renderScheduledTasks(data.tasks);
+        }
+        
+        function renderScheduledTasks(tasks) {
+            const list = document.getElementById('scheduledTaskList');
+            if (!tasks || tasks.length === 0) {
+                list.innerHTML = '<div class="empty-state">暂无定时任务</div>';
+                return;
+            }
+            
+            list.innerHTML = tasks.map(task => `
+                <div class="list-item">
+                    <div class="list-item-content">
+                        <div class="list-item-title">${task.name}</div>
+                        <div class="list-item-subtitle">
+                            ${task.type === 'once' ? '执行时间: ' + task.time : '每天 ' + task.hour + ':' + String(task.minute).padStart(2, '0')}
+                            | 发送对象: ${task.targetType}
+                        </div>
+                    </div>
+                    <button class="btn btn-danger btn-sm" onclick="deleteScheduledTask(${task.id})">删除</button>
+                </div>
+            `).join('');
+        }
+        
+        async function deleteScheduledTask(id) {
+            await fetch(`/api/scheduled-tasks/${id}`, { method: 'DELETE' });
+            loadScheduledTasks();
+        }
+        
+        async function createGroup() {
+            const name = document.getElementById('newGroupName').value;
+            const membersText = document.getElementById('newGroupMembers').value;
+            
+            if (!name || !membersText) {
+                alert('请填写群组名称和成员');
+                return;
+            }
+            
+            const participants = membersText.split('\n').map(m => m.trim()).filter(m => m);
+            
+            const response = await fetch('/api/group/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, participants })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                alert('群组创建成功！');
+                document.getElementById('newGroupName').value = '';
+                document.getElementById('newGroupMembers').value = '';
+                loadChats();
+            } else {
+                alert('创建失败: ' + result.error);
+            }
+        }
+        
+        function loadGroupInfo() {
+            const groupId = document.getElementById('groupSelect').value;
+            document.getElementById('groupActions').style.display = groupId ? 'block' : 'none';
+        }
+        
+        async function addGroupMembers() {
+            const groupId = document.getElementById('groupSelect').value;
+            const membersText = document.getElementById('addGroupMembers').value;
+            
+            if (!groupId || !membersText) {
+                alert('请选择群组并输入成员');
+                return;
+            }
+            
+            const participants = membersText.split('\n').map(m => m.trim()).filter(m => m);
+            
+            const response = await fetch(`/api/group/${groupId}/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ participants })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                alert('成员添加成功！');
+                document.getElementById('addGroupMembers').value = '';
+            } else {
+                alert('添加失败: ' + result.error);
+            }
+        }
+        
+        async function removeGroupMembers() {
+            const groupId = document.getElementById('groupSelect').value;
+            const membersText = document.getElementById('addGroupMembers').value;
+            
+            if (!groupId || !membersText) {
+                alert('请选择群组并输入要移除的成员');
+                return;
+            }
+            
+            const participants = membersText.split('\n').map(m => m.trim()).filter(m => m);
+            
+            const response = await fetch(`/api/group/${groupId}/remove`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ participants })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                alert('成员移除成功！');
+            } else {
+                alert('移除失败: ' + result.error);
+            }
+        }
+        
+        async function leaveGroup() {
+            const groupId = document.getElementById('groupSelect').value;
+            
+            if (!groupId) {
+                alert('请选择群组');
+                return;
+            }
+            
+            if (!confirm('确定要退出这个群组吗？')) return;
+            
+            const response = await fetch(`/api/group/${groupId}/leave`, {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                alert('已退出群组');
+                loadChats();
+            } else {
+                alert('退出失败: ' + result.error);
+            }
+        }
+        
+        function loadChatActions() {
+            const chatId = document.getElementById('manageChatSelect').value;
+            document.getElementById('chatActions').style.display = chatId ? 'block' : 'none';
+        }
+        
+        async function markSeen() {
+            const chatId = document.getElementById('manageChatSelect').value;
+            if (!chatId) return;
+            
+            const response = await fetch(`/api/chat/${chatId}/mark-seen`, { method: 'POST' });
+            const result = await response.json();
+            alert(result.success ? '已标记已读' : '操作失败: ' + result.error);
+        }
+        
+        async function pinChat(pin) {
+            const chatId = document.getElementById('manageChatSelect').value;
+            if (!chatId) return;
+            
+            const response = await fetch(`/api/chat/${chatId}/pin`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin })
+            });
+            const result = await response.json();
+            alert(result.success ? (pin ? '已置顶' : '已取消置顶') : '操作失败: ' + result.error);
+        }
+        
+        async function archiveChat() {
+            const chatId = document.getElementById('manageChatSelect').value;
+            if (!chatId) return;
+            
+            const response = await fetch(`/api/chat/${chatId}/archive`, { method: 'POST' });
+            const result = await response.json();
+            alert(result.success ? '已归档' : '操作失败: ' + result.error);
+        }
+        
+        async function muteChat() {
+            const chatId = document.getElementById('manageChatSelect').value;
+            if (!chatId) return;
+            
+            const response = await fetch(`/api/chat/${chatId}/mute`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ duration: 3600000 })
+            });
+            const result = await response.json();
+            alert(result.success ? '已开启免打扰' : '操作失败: ' + result.error);
+        }
+        
+        async function unmuteChat() {
+            const chatId = document.getElementById('manageChatSelect').value;
+            if (!chatId) return;
+            
+            const response = await fetch(`/api/chat/${chatId}/unmute`, { method: 'POST' });
+            const result = await response.json();
+            alert(result.success ? '已取消免打扰' : '操作失败: ' + result.error);
+        }
+        
+        let selectedFile = null;
+        
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            selectedFile = file;
+            document.getElementById('fileInfo').style.display = 'block';
+            document.getElementById('fileInfo').textContent = `已选择: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+        }
+        
+        async function sendMedia() {
+            const chatId = document.getElementById('mediaChatSelect').value;
+            const caption = document.getElementById('mediaCaption').value;
+            
+            if (!chatId || !selectedFile) {
+                alert('请选择联系人和文件');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = async function() {
+                const base64 = reader.result.split(',')[1];
+                
+                const uploadResponse = await fetch('/api/upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileName: selectedFile.name,
+                        base64Data: base64,
+                        mimeType: selectedFile.type
+                    })
+                });
+                
+                const uploadResult = await uploadResponse.json();
+                if (!uploadResult.success) {
+                    alert('上传失败: ' + uploadResult.error);
+                    return;
+                }
+                
+                const sendResponse = await fetch('/api/send-media', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chatId, caption })
+                });
+                
+                const sendResult = await sendResponse.json();
+                if (sendResult.success) {
+                    alert('发送成功！');
+                    selectedFile = null;
+                    document.getElementById('fileInfo').style.display = 'none';
+                    document.getElementById('mediaCaption').value = '';
+                } else {
+                    alert('发送失败: ' + sendResult.error);
+                }
+            };
+            reader.readAsDataURL(selectedFile);
+        }
+
+        async function lookupContact() {
+            const contactId = document.getElementById('contactId').value;
+            if (!contactId) {
+                alert('请输入联系人 ID');
+                return;
+            }
+            
+            const response = await fetch(`/api/contact/${contactId}`);
+            const data = await response.json();
+            
+            if (data.error) {
+                alert('查询失败: ' + data.error);
+                return;
+            }
+            
+            const contact = data.contact;
+            document.getElementById('contactInfo').style.display = 'block';
+            document.getElementById('contactName').value = contact.name || '';
+            document.getElementById('contactPushname').value = contact.pushname || '';
+            document.getElementById('contactIsBusiness').value = contact.isBusiness ? '是' : '否';
+            
+            const picResponse = await fetch(`/api/contact/${contactId}/profile-pic`);
+            const picData = await picResponse.json();
+            document.getElementById('contactProfilePic').src = picData.profilePicUrl || '';
+        }
+
+        async function loadStats() {
+            const response = await fetch('/api/stats');
+            const data = await response.json();
+            
+            if (data.error) {
+                alert('加载失败: ' + data.error);
+                return;
+            }
+            
+            const stats = data.stats;
+            let html = `
+                <div class="grid" style="margin-top: 15px;">
+                    <div class="card" style="text-align: center;">
+                        <h3 style="font-size: 2em; color: #667eea;">${stats.totalChats}</h3>
+                        <p>总聊天数</p>
+                    </div>
+                    <div class="card" style="text-align: center;">
+                        <h3 style="font-size: 2em; color: #2ed573;">${stats.privateChats}</h3>
+                        <p>私聊</p>
+                    </div>
+                    <div class="card" style="text-align: center;">
+                        <h3 style="font-size: 2em; color: #ffa502;">${stats.groupChats}</h3>
+                        <p>群组</p>
+                    </div>
+                </div>
+            `;
+            
+            if (stats.topGroups && stats.topGroups.length > 0) {
+                html += '<h3 style="margin-top: 20px;">群组成员排行</h3>';
+                html += '<div class="list-group">';
+                stats.topGroups.forEach((group, index) => {
+                    html += `
+                        <div class="list-item">
+                            <div class="list-item-title">${index + 1}. ${group[0]}</div>
+                            <div class="badge badge-info">${group[1]} 成员</div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+            
+            document.getElementById('statsContent').innerHTML = html;
+        }
+
+        async function sendLocation() {
+            const chatId = document.getElementById('locationChatSelect').value;
+            const lat = document.getElementById('locationLat').value;
+            const lng = document.getElementById('locationLng').value;
+            const title = document.getElementById('locationTitle').value;
+            
+            if (!chatId || !lat || !lng) {
+                alert('请填写完整信息');
+                return;
+            }
+            
+            const response = await fetch('/api/send-location', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId, latitude: parseFloat(lat), longitude: parseFloat(lng), title })
+            });
+            
+            const result = await response.json();
+            alert(result.success ? '发送成功' : '失败: ' + result.error);
+        }
+
+        async function sendPoll() {
+            const chatId = document.getElementById('pollChatSelect').value;
+            const question = document.getElementById('pollQuestion').value;
+            const optionsText = document.getElementById('pollOptions').value;
+            const allowMultiple = document.getElementById('pollMultiple').checked;
+            
+            if (!chatId || !question || !optionsText) {
+                alert('请填写完整信息');
+                return;
+            }
+            
+            const options = optionsText.split('\n').filter(o => o.trim());
+            
+            const response = await fetch('/api/send-poll', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId, question, options, allowMultipleAnswers: allowMultiple })
+            });
+            
+            const result = await response.json();
+            alert(result.success ? '发送成功' : '失败: ' + result.error);
+        }
+
+        async function searchMessages() {
+            const query = document.getElementById('searchQuery').value;
+            if (!query) {
+                alert('请输入搜索关键词');
+                return;
+            }
+            
+            const response = await fetch(`/api/search-messages?query=${encodeURIComponent(query)}`);
+            const data = await response.json();
+            
+            if (data.error) {
+                alert('搜索失败: ' + data.error);
+                return;
+            }
+            
+            const results = data.results;
+            if (results.length === 0) {
+                document.getElementById('searchResults').innerHTML = '<div class="empty-state">未找到结果</div>';
+                return;
+            }
+            
+            let html = '<div class="list-group">';
+            results.forEach(r => {
+                const time = new Date(r.timestamp * 1000).toLocaleString();
+                html += `
+                    <div class="list-item">
+                        <div class="list-item-content">
+                            <div class="list-item-title">${r.chatName}</div>
+                            <div class="list-item-subtitle">${r.body}</div>
+                            <div class="message-time">${time}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            document.getElementById('searchResults').innerHTML = html;
+        }
+
+        async function loadChannels() {
+            const response = await fetch('/api/channel/list');
+            const data = await response.json();
+            
+            if (data.channels && data.channels.length > 0) {
+                let html = '<div class="list-group">';
+                data.channels.forEach(c => {
+                    html += `
+                        <div class="list-item">
+                            <div class="list-item-title">${c.name}</div>
+                            <div class="list-item-subtitle">${c.description || ''}</div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                document.getElementById('channelList').innerHTML = html;
+            } else {
+                document.getElementById('channelList').innerHTML = '<div class="empty-state">暂无频道</div>';
+            }
+        }
+
+        async function createChannel() {
+            const name = document.getElementById('channelName').value;
+            const description = document.getElementById('channelDesc').value;
+            
+            if (!name) {
+                alert('请输入频道名称');
+                return;
+            }
+            
+            const response = await fetch('/api/channel/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                alert('创建成功');
+                document.getElementById('channelName').value = '';
+                document.getElementById('channelDesc').value = '';
+                loadChannels();
+            } else {
+                alert('失败: ' + result.error);
+            }
+        }
+
+        async function joinGroup() {
+            const link = document.getElementById('joinLink').value;
+            if (!link) {
+                alert('请输入邀请链接');
+                return;
+            }
+            
+            const inviteCode = link.match(/chat\/([a-zA-Z0-9-]+)/)?.[1] || link;
+            
+            const response = await fetch('/api/join-group', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ inviteCode })
+            });
+            
+            const result = await response.json();
+            alert(result.success ? '加入成功' : '失败: ' + result.error);
+        }
+
+        async function updateProfileName() {
+            const name = document.getElementById('newProfileName').value;
+            if (!name) {
+                alert('请输入新昵称');
+                return;
+            }
+            
+            const response = await fetch('/api/profile/update-name', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            
+            const result = await response.json();
+            alert(result.success ? '修改成功' : '失败: ' + result.error);
+        }
+
+        async function updateProfileStatus() {
+            const status = document.getElementById('newProfileStatus').value;
+            if (!status) {
+                alert('请输入新状态');
+                return;
+            }
+            
+            const response = await fetch('/api/profile/update-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            });
+            
+            const result = await response.json();
+            alert(result.success ? '修改成功' : '失败: ' + result.error);
+        }
+
+        async function sendSticker() {
+            const chatId = document.getElementById('stickerChatSelect').value;
+            const url = document.getElementById('stickerUrl').value;
+            
+            if (!chatId || !url) {
+                alert('请填写完整信息');
+                return;
+            }
+            
+            const response = await fetch('/api/send-sticker', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId, url })
+            });
+            
+            const result = await response.json();
+            alert(result.success ? '发送成功' : '失败: ' + result.error);
+        }
+
+        async function loadLabels() {
+            const response = await fetch('/api/labels');
+            const data = await response.json();
+            
+            const labelList = document.getElementById('labelList');
+            const labelSelect = document.getElementById('labelSelect');
+            
+            if (data.labels && data.labels.length > 0) {
+                let html = '<div class="list-group">';
+                data.labels.forEach(l => {
+                    html += `
+                        <div class="list-item">
+                            <div class="list-item-title" style="color: #${l.color || '667eea'}">● ${l.name}</div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                labelList.innerHTML = html;
+                
+                labelSelect.innerHTML = '<option value="">-- 选择标签 --</option>';
+                data.labels.forEach(l => {
+                    const option = document.createElement('option');
+                    option.value = l.id;
+                    option.textContent = l.name;
+                    labelSelect.appendChild(option);
+                });
+            } else {
+                labelList.innerHTML = '<div class="empty-state">暂无标签</div>';
+            }
+        }
+
+        async function addLabelToChat() {
+            const chatId = document.getElementById('labelChatSelect').value;
+            const labelId = document.getElementById('labelSelect').value;
+            
+            if (!chatId || !labelId) {
+                alert('请选择聊天和标签');
+                return;
+            }
+            
+            const response = await fetch(`/api/chat/${chatId}/label`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ labelId, action: 'add' })
+            });
+            
+            const result = await response.json();
+            alert(result.success ? '添加成功' : '失败: ' + result.error);
+        }
+
+        async function removeLabelFromChat() {
+            const chatId = document.getElementById('labelChatSelect').value;
+            
+            if (!chatId) {
+                alert('请选择聊天');
+                return;
+            }
+            
+            const response = await fetch(`/api/chat/${chatId}/label`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ labelId: null, action: 'remove' })
+            });
+            
+            const result = await response.json();
+            alert(result.success ? '移除成功' : '失败: ' + result.error);
+        }
+
+        function addMessage(data) {
+            const messagesDiv = document.getElementById('receivedMessages');
+            const emptyMsg = messagesDiv.querySelector('.empty-state');
+            if (emptyMsg) emptyMsg.remove();
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message received';
+            const time = new Date(data.timestamp * 1000).toLocaleTimeString();
+            msgDiv.innerHTML = `
+                <strong>${data.name || data.from}</strong>
+                <span class="message-time">${time}</span>
+                <br>${data.body || '[消息类型: ' + data.type + ']'}
+            `;
+            messagesDiv.insertBefore(msgDiv, messagesDiv.firstChild);
+            
+            if (messagesDiv.children.length > 50) {
+                messagesDiv.removeChild(messagesDiv.lastChild);
+            }
+        }
+
+        loadAutoReplyRules();
+        loadScheduledTasks();
+        loadChats();
+    </script>
+</body>
+</html>
