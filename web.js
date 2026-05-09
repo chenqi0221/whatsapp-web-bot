@@ -31,9 +31,9 @@ let autoReplyRules = [];
 let scheduledTasks = [];
 
 const clientConfig = {
-    authStrategy: new LocalAuth(),
+    authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth_v2' }),
     puppeteer: {
-        headless: false,
+        headless: true,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -41,7 +41,9 @@ const clientConfig = {
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
-            '--disable-gpu'
+            '--disable-gpu',
+            '--disable-web-security',
+            '--disable-features=IsolateOrigins,site-per-process'
         ],
         timeout: 120000,
     },
@@ -49,7 +51,9 @@ const clientConfig = {
 
 function initClient() {
     if (client) {
-        client.destroy();
+        try {
+            client.destroy();
+        } catch(e) {}
     }
 
     client = new Client(clientConfig);
@@ -58,6 +62,17 @@ function initClient() {
         qrCode = qr;
         clientStatus = 'qr';
         io.emit('status', { status: 'qr', qr });
+        console.log('QR code received');
+    });
+
+    client.on('loading_screen', (percent, message) => {
+        console.log(`Loading: ${percent}% - ${message}`);
+    });
+
+    client.on('authenticated', () => {
+        clientStatus = 'authenticated';
+        io.emit('status', { status: 'authenticated' });
+        console.log('Authenticated');
     });
 
     client.on('ready', () => {
@@ -65,24 +80,28 @@ function initClient() {
         qrCode = null;
         io.emit('status', { status: 'ready' });
         startScheduledTasks();
-        console.log('\n\n===== WhatsApp Ready! Starting auto contact test loop =====\n');
-        contactTestLoop.attempts = 0;
-        startContactTestLoop();
-    });
-
-    client.on('authenticated', () => {
-        clientStatus = 'authenticated';
-        io.emit('status', { status: 'authenticated' });
+        console.log('\n\n===== WhatsApp Ready! =====\n');
     });
 
     client.on('auth_failure', (msg) => {
         clientStatus = 'auth_failure';
         io.emit('status', { status: 'auth_failure', message: msg });
+        console.log('Auth failure:', msg);
     });
 
     client.on('disconnected', (reason) => {
         clientStatus = 'disconnected';
         io.emit('status', { status: 'disconnected', reason });
+        console.log('Disconnected:', reason);
+    });
+
+    // 添加更多调试事件
+    client.on('change_state', (state) => {
+        console.log('State changed:', state);
+    });
+
+    client.on('change_battery', (batteryInfo) => {
+        console.log('Battery:', batteryInfo);
     });
 
     client.on('message', (msg) => {
@@ -97,7 +116,13 @@ function initClient() {
         handleAutoReply(msg);
     });
 
-    client.initialize();
+    client.initialize().then(() => {
+        console.log('Client initialization completed');
+    }).catch((error) => {
+        console.error('Error initializing client:', error);
+        clientStatus = 'auth_failure';
+        io.emit('status', { status: 'auth_failure', message: error.message });
+    });
 }
 
 async function runContactTest() {
@@ -305,15 +330,22 @@ async function runContactTest() {
                     let attrs = null;
                     if (c.attributes) {
                         attrs = c.attributes;
-                    } else if (c.serialize) {
-                        attrs = c.serialize();
+                    } else if (c.serialize && typeof c.serialize === 'function') {
+                        try {
+                            attrs = c.serialize();
+                        } catch (serializeError) {
+                            attrs = c;
+                        }
                     } else {
                         attrs = c;
                     }
                     
-                    const number = attrs.phone || attrs.phoneNumber || attrs.id?.user || attrs.userid;
+                    let number = attrs.phone || attrs.phoneNumber || attrs.id?.user || attrs.userid;
+                    if (typeof number === 'object' && number !== null && number.user) {
+                        number = number.user;
+                    }
                     
-                    if (!number) {
+                    if (!number || typeof number !== 'string') {
                         skippedNoNumber++;
                         continue;
                     }
@@ -325,7 +357,9 @@ async function runContactTest() {
                     result.push({
                         number: number,
                         name: attrs.displayName || attrs.pushname || attrs.shortName || attrs.name || number,
-                        isMe: attrs.isMe
+                        isMe: attrs.isMe,
+                        lid: attrs.id?.user || null,
+                        id: attrs.id?._serialized || null
                     });
                     addedCount++;
                 } catch(e) { log('Error processing contact: ' + e.message); }
@@ -453,7 +487,7 @@ function startScheduledTasks() {
 
                 for (const chat of targetChats) {
                     await client.sendMessage(chat.id._serialized, task.message);
-                    await new Promise(r => setTimeout(r, 2000));
+                    await new Promise(r => setTimeout(r, 5000));
                 }
 
                 io.emit('scheduled-task', { 
@@ -494,10 +528,20 @@ function startScheduledTasks() {
     });
 }
 
+// 自动初始化客户端
 initClient();
 
 app.get('/api/status', (req, res) => {
     res.json({ status: clientStatus, qr: qrCode });
+});
+
+app.post('/api/connect', (req, res) => {
+    if (client && clientStatus !== 'disconnected') {
+        res.json({ success: false, message: 'Already connected' });
+        return;
+    }
+    initClient();
+    res.json({ success: true, message: 'Connecting...' });
 });
 
 app.post('/api/contact-test/start', (req, res) => {
@@ -530,6 +574,14 @@ app.get('/api/chats', async (req, res) => {
     }
     try {
         const chats = await client.getChats();
+        
+        // Debug: log first chat's available properties
+        if (chats.length > 0) {
+            console.log('First chat available keys:', Object.keys(chats[0]));
+            console.log('First chat id keys:', Object.keys(chats[0].id));
+            console.log('First chat id:', JSON.stringify(chats[0].id));
+        }
+        
         const chatList = chats.map(chat => ({
             id: chat.id._serialized,
             name: chat.name,
@@ -595,25 +647,32 @@ app.get('/api/contacts-list', async (req, res) => {
         const contactsData = await client.pupPage.evaluate(async () => {
             let contacts = [];
             
-            // Method 1: Try window.require('WAWebCollections') - NEW API
+            // Method 1: Try _index first (most reliable for getting all contacts)
             if (window.require) {
                 try {
                     const Collections = window.require('WAWebCollections');
                     if (Collections && Collections.Contact) {
-                        // Try _index first (new API)
+                        // Try _index first (usually has all contacts)
                         if (Collections.Contact._index) {
-                            contacts = Object.values(Collections.Contact._index);
-                            console.log('WAWebCollections.Contact._index result:', contacts?.length);
+                            const allContacts = Object.values(Collections.Contact._index);
+                            // Filter to only include contacts with phoneNumber attribute (avoid duplicates)
+                            contacts = allContacts.filter(c => {
+                                try {
+                                    const attrs = c.attributes || (c.serialize ? c.serialize() : c);
+                                    return attrs && attrs.phoneNumber;
+                                } catch(e) { return false; }
+                            });
+                            console.log('_index result:', allContacts?.length, 'filtered:', contacts?.length);
                         }
-                        // Try findAll
+                        // Fallback to findAll
                         if ((!contacts || contacts.length === 0) && Collections.Contact.findAll) {
                             contacts = await Collections.Contact.findAll();
                             console.log('findAll result:', contacts?.length);
                         }
-                        // Try models
-                        if ((!contacts || contacts.length === 0) && Collections.Contact.models) {
+                        // Last resort: models
+                        if ((!contacts || contacts.length === 0) && Collections.Contact.models && Collections.Contact.models.length > 0) {
                             contacts = Collections.Contact.models;
-                            console.log('models result:', contacts?.length);
+                            console.log('models result:', contacts.length);
                         }
                     }
                 } catch(e) { console.log('Error WAWebCollections:', e.message); }
@@ -623,14 +682,16 @@ app.get('/api/contacts-list', async (req, res) => {
             if (!contacts || contacts.length === 0) {
                 if (window.Store && window.Store.Contact) {
                     try {
-                        if (window.Store.Contact._index) {
-                            contacts = Object.values(window.Store.Contact._index);
-                        } else if (window.Store.Contact.findAll) {
+                        if (window.Store.Contact.findAll) {
                             contacts = await window.Store.Contact.findAll();
-                        } else if (window.Store.Contact.models) {
+                            console.log('Store findAll result:', contacts?.length);
+                        } else if (window.Store.Contact._index) {
+                            contacts = Object.values(window.Store.Contact._index);
+                            console.log('Store _index result:', contacts?.length);
+                        } else if (window.Store.Contact.models && window.Store.Contact.models.length > 0) {
                             contacts = window.Store.Contact.models;
+                            console.log('Store models result:', contacts?.length);
                         }
-                        console.log('Store.Contact result:', contacts?.length);
                     } catch(e) { console.log('Error Store.Contact:', e.message); }
                 }
             }
@@ -679,41 +740,108 @@ app.get('/api/contacts-list', async (req, res) => {
             console.log('Final contacts array:', contacts?.length);
             
             const result = [];
+            let countNoNumber = 0;
+            let countTooShort = 0;
+            let countAdded = 0;
+            let countDuplicate = 0;
+            const seenNumbers = new Set();
+            
             for (const c of contacts || []) {
                 try {
                     let attrs = null;
                     if (c.attributes) {
                         attrs = c.attributes;
-                    } else if (c.serialize) {
-                        attrs = c.serialize();
+                    } else if (c.serialize && typeof c.serialize === 'function') {
+                        try {
+                            attrs = c.serialize();
+                        } catch (serializeError) {
+                            attrs = c;
+                        }
                     } else {
                         attrs = c;
                     }
-                    const number = attrs.phone || attrs.phoneNumber || attrs.id?.user || attrs.userid;
-                    if (number && number.length > 5) {
-                        result.push({
-                            number: number,
-                            name: attrs.displayName || attrs.pushname || attrs.shortName || attrs.name || number,
-                            isMe: attrs.isMe
-                        });
+                    
+                    let number = attrs.phone || attrs.phoneNumber || attrs.id?.user || attrs.userid;
+                    // Handle case where number is an object like {user: "xxx", server: "c.us"}
+                    if (typeof number === 'object' && number !== null && number.user) {
+                        number = number.user;
                     }
-                } catch(e) {}
+                    
+                    // 如果没有电话号码，尝试使用id._serialized
+                    if (!number && attrs.id && attrs.id._serialized) {
+                        number = attrs.id._serialized.split('@')[0];
+                    }
+                    
+                    if (!number || typeof number !== 'string') {
+                        countNoNumber++;
+                        continue;
+                    }
+                    if (number.length <= 5) {
+                        countTooShort++;
+                        continue;
+                    }
+                    
+                    // 检查重复
+                    if (seenNumbers.has(number)) {
+                        countDuplicate++;
+                        continue;
+                    }
+                    seenNumbers.add(number);
+                    
+                    // Debug: log first contact's id structure
+                    if (countAdded === 0) {
+                        console.log('First contact attrs.id:', JSON.stringify(attrs.id));
+                        console.log('First contact attrs keys:', Object.keys(attrs));
+                    }
+                    
+                    result.push({
+                        number: number,
+                        name: attrs.displayName || attrs.pushname || attrs.shortName || attrs.name || number,
+                        isMe: attrs.isMe,
+                        lid: attrs.id?.user || null,
+                        id: attrs.id?._serialized || null
+                    });
+                    countAdded++;
+                } catch(e) {
+                    console.log('Error processing contact:', e.message);
+                }
             }
-            return result;
+            
+            return {
+                contacts: result,
+                stats: {
+                    total: contacts?.length || 0,
+                    noNumber: countNoNumber,
+                    tooShort: countTooShort,
+                    duplicate: countDuplicate,
+                    added: countAdded
+                }
+            };
         });
         
-        console.log('Processed contacts:', contactsData.length);
+        const { contacts: rawContacts, stats } = contactsData;
+        console.log('Contact processing stats:', stats);
         
-        const contactList = contactsData
-            .filter(c => !c.isMe)
-            .map(c => ({
-                id: c.number + '@c.us',
-                name: c.name,
-                number: c.number
-            }));
+        const isMeCount = rawContacts.filter(c => c.isMe).length;
+        console.log('Filtered (isMe):', isMeCount);
         
-        console.log('Final contacts:', contactList.length);
-        res.json({ contacts: contactList, total: contactList.length });
+        const uniqueNumbers = new Set();
+        const contactList = [];
+        for (const c of rawContacts) {
+            if (c.isMe) continue;
+            if (!uniqueNumbers.has(c.number)) {
+                uniqueNumbers.add(c.number);
+                contactList.push({
+                    id: c.number + '@c.us',
+                    name: c.name,
+                    number: c.number,
+                    lid: c.lid || null
+                });
+            }
+        }
+        
+        console.log('Final contacts (after dedup):', contactList.length);
+        res.json({ contacts: contactList, total: contactList.length, stats });
     } catch (e) {
         console.log('API Error:', e.message);
         res.json({ contacts: [], error: e.message });
@@ -809,8 +937,173 @@ app.post('/api/upload', async (req, res) => {
     }
 });
 
+function randomizeMessage(message) {
+    let result = message;
+    
+    // 随机添加表情符号（20%概率）
+    const emojis = ['😊', '👍', '✨', '🎉', '👋', '😄', '🙏', '💪'];
+    if (Math.random() < 0.2) {
+        const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+        // 50% 加在前面，50% 加在后面
+        if (Math.random() < 0.5) {
+            result = randomEmoji + ' ' + result;
+        } else {
+            result = result + ' ' + randomEmoji;
+        }
+    }
+    
+    // 随机变换标点符号（30%概率）
+    if (Math.random() < 0.3) {
+        result = result.replace(/。/g, () => Math.random() < 0.5 ? '。' : '！');
+    }
+    
+    return result;
+}
+
+async function getAllContactsFromPuppeteer() {
+    const contactsData = await client.pupPage.evaluate(async () => {
+        let contacts = [];
+        
+        // Method 1: Try _index first (most reliable for getting all contacts)
+        if (window.require) {
+            try {
+                const Collections = window.require('WAWebCollections');
+                if (Collections && Collections.Contact) {
+                    // Try _index first (usually has all contacts)
+                    if (Collections.Contact._index) {
+                        const allContacts = Object.values(Collections.Contact._index);
+                        // Filter to only include contacts with phoneNumber attribute (avoid duplicates)
+                        contacts = allContacts.filter(c => {
+                            try {
+                                const attrs = c.attributes || (c.serialize ? c.serialize() : c);
+                                return attrs && attrs.phoneNumber;
+                            } catch(e) { return false; }
+                        });
+                        console.log('_index result:', allContacts?.length, 'filtered:', contacts?.length);
+                    }
+                    // Fallback to findAll
+                    if ((!contacts || contacts.length === 0) && Collections.Contact.findAll) {
+                        contacts = await Collections.Contact.findAll();
+                        console.log('findAll result:', contacts?.length);
+                    }
+                    // Last resort: models
+                    if ((!contacts || contacts.length === 0) && Collections.Contact.models && Collections.Contact.models.length > 0) {
+                        contacts = Collections.Contact.models;
+                        console.log('models result:', contacts.length);
+                    }
+                }
+            } catch(e) { console.log('Error WAWebCollections:', e.message); }
+        }
+        
+        // Method 2: Try window.Store (older API)
+        if (!contacts || contacts.length === 0) {
+            if (window.Store && window.Store.Contact) {
+                try {
+                    if (window.Store.Contact.findAll) {
+                        contacts = await window.Store.Contact.findAll();
+                        console.log('Store findAll result:', contacts?.length);
+                    } else if (window.Store.Contact._index) {
+                        contacts = Object.values(window.Store.Contact._index);
+                        console.log('Store _index result:', contacts?.length);
+                    } else if (window.Store.Contact.models && window.Store.Contact.models.length > 0) {
+                        contacts = window.Store.Contact.models;
+                        console.log('Store models result:', contacts?.length);
+                    }
+                } catch(e) { console.log('Error Store.Contact:', e.message); }
+            }
+        }
+        
+        // Method 3: Try WAPI
+        if (!contacts || contacts.length === 0) {
+            if (window.WAPI && window.WAPI.getAllContacts) {
+                try {
+                    contacts = await window.WAPI.getAllContacts();
+                    console.log('WAPI result:', contacts?.length);
+                } catch(e) { console.log('Error WAPI:', e.message); }
+            }
+        }
+        
+        console.log('Final contacts array:', contacts?.length);
+        
+        const result = [];
+        let countNoNumber = 0;
+        let countTooShort = 0;
+        let countAdded = 0;
+        let countDuplicate = 0;
+        const seenNumbers = new Set();
+        
+        for (const c of contacts || []) {
+            try {
+                let attrs = null;
+                if (c.attributes) {
+                    attrs = c.attributes;
+                } else if (c.serialize && typeof c.serialize === 'function') {
+                    try {
+                        attrs = c.serialize();
+                    } catch (serializeError) {
+                        attrs = c;
+                    }
+                } else {
+                    attrs = c;
+                }
+                
+                let number = attrs.phone || attrs.phoneNumber || attrs.id?.user || attrs.userid;
+                // Handle case where number is an object like {user: "xxx", server: "c.us"}
+                if (typeof number === 'object' && number !== null && number.user) {
+                    number = number.user;
+                }
+                
+                // 如果没有电话号码，尝试使用id._serialized
+                if (!number && attrs.id && attrs.id._serialized) {
+                    number = attrs.id._serialized.split('@')[0];
+                }
+                
+                if (!number || typeof number !== 'string') {
+                    countNoNumber++;
+                    continue;
+                }
+                if (number.length <= 5) {
+                    countTooShort++;
+                    continue;
+                }
+                
+                // 检查重复
+                if (seenNumbers.has(number)) {
+                    countDuplicate++;
+                    continue;
+                }
+                seenNumbers.add(number);
+                
+                result.push({
+                    number: number,
+                    name: attrs.displayName || attrs.pushname || attrs.shortName || attrs.name || number,
+                    isMe: attrs.isMe,
+                    lid: attrs.id?.user || null,
+                    id: attrs.id?._serialized || null
+                });
+                countAdded++;
+            } catch(e) {
+                console.log('Error processing contact:', e.message);
+            }
+        }
+        
+        return {
+            contacts: result,
+            stats: {
+                total: contacts?.length || 0,
+                noNumber: countNoNumber,
+                tooShort: countTooShort,
+                duplicate: countDuplicate,
+                added: countAdded
+            }
+        };
+    });
+    
+    return contactsData;
+}
+
 app.post('/api/broadcast', async (req, res) => {
-    const { message, interval = 10000, excludeGroups = true, personalize, targetType = 'chats', manualNumbers } = req.body;
+    const { message, interval = 10000, randomInterval = true, randomizeMsg = true, respectHours = true, randomPause = true, excludeGroups = true, personalize, targetType = 'chats', manualNumbers } = req.body;
     
     if (!client || clientStatus !== 'ready') {
         return res.json({ success: false, error: 'Client not ready' });
@@ -839,60 +1132,135 @@ app.post('/api/broadcast', async (req, res) => {
         } else if (targetType === 'contacts') {
             console.log('Fetching ALL contacts via Puppeteer...');
             
-            const contactsData = await client.pupPage.evaluate(async () => {
-                let contacts = [];
-                
-                if (window.require) {
-                    try {
-                        const Collections = window.require('WAWebCollections');
-                        if (Collections && Collections.Contact && Collections.Contact._index) {
-                            contacts = Object.values(Collections.Contact._index);
-                            console.log('Contact._index result:', contacts?.length);
-                        }
-                    } catch(e) { console.log('Error:', e.message); }
-                }
-                
-                const result = [];
-                for (const c of contacts || []) {
-                    try {
-                        let attrs = null;
-                        if (c.attributes) {
-                            attrs = c.attributes;
-                        } else if (c.serialize) {
-                            attrs = c.serialize();
-                        } else {
-                            attrs = c;
-                        }
-                        const number = attrs.phone || attrs.phoneNumber || attrs.id?.user || attrs.userid;
-                        if (number && number.length > 5) {
-                            result.push({
-                                number: number,
-                                name: attrs.displayName || attrs.pushname || attrs.shortName || attrs.name || number,
-                                isMe: attrs.isMe
-                            });
-                        }
-                    } catch(e) {}
-                }
-                return result;
-            });
+            const { contacts: contactsData, stats } = await getAllContactsFromPuppeteer();
+            console.log('Contact stats:', stats);
             
             const filtered = contactsData.filter(c => !c.isMe);
-            targetItems = filtered.map(c => ({
-                id: c.number + '@c.us',
-                name: c.name,
-                number: c.number,
-                isGroup: false
-            }));
+            
+            const uniqueNums = new Set();
+            targetItems = [];
+            for (const c of filtered) {
+                if (!uniqueNums.has(c.number)) {
+                    uniqueNums.add(c.number);
+                    targetItems.push({
+                        id: c.id || c.number + '@c.us',
+                        name: c.name,
+                        number: c.number,
+                        lid: c.lid,
+                        isGroup: false
+                    });
+                }
+            }
             console.log('Found ALL contacts:', targetItems.length);
+        } else if (targetType === 'nohistory') {
+            console.log('Fetching contacts with NO chat history...');
+            
+            const { contacts: contactsData, stats } = await getAllContactsFromPuppeteer();
+            console.log('Contact stats:', stats);
+            
+            const chats = await client.getChats();
+            
+            // 构建聊天记录的 ID 集合（多种格式）
+            const chatNumbers = new Set();
+            const chatLids = new Set();
+            const chatNames = new Set();
+            
+            for (const chat of chats) {
+                // 提取数字 ID
+                let number = null;
+                if (chat.id?.user) {
+                    number = chat.id.user;
+                } else if (chat.id?._serialized) {
+                    const match = chat.id._serialized.match(/^(\d+)@/);
+                    if (match) number = match[1];
+                }
+                if (number) {
+                    chatNumbers.add(number);
+                }
+                
+                // 提取 lid
+                if (chat.id?._serialized && chat.id._serialized.endsWith('@lid')) {
+                    const lidMatch = chat.id._serialized.match(/^(\d+)@lid/);
+                    if (lidMatch) chatLids.add(lidMatch[1]);
+                }
+                
+                // 提取名字
+                if (chat.name) {
+                    chatNames.add(chat.name.toLowerCase().trim());
+                }
+            }
+            
+            console.log('Chat numbers count:', chatNumbers.size);
+            console.log('Chat lids count:', chatLids.size);
+            console.log('Chat names count:', chatNames.size);
+            
+            const filteredContacts = contactsData.filter(c => {
+                if (c.isMe) return false;
+                
+                const num = c.number.replace(/^\+/, '');
+                const nameMatch = c.name ? chatNames.has(c.name.toLowerCase().trim()) : false;
+                const partialMatch = c.name && Array.from(chatNames).some(chatName =>
+                    chatName.includes(c.name.toLowerCase().trim()) || 
+                    c.name.toLowerCase().trim().includes(chatName)
+                );
+                
+                // 多种方式检查是否在聊天记录中
+                const inChatsByLid = c.lid && (chatNumbers.has(c.lid) || chatLids.has(c.lid));
+                const inChatsByNumber = chatNumbers.has(num) || chatNumbers.has(c.number);
+                const inChatsById = c.id && chatNumbers.has(c.id.split('@')[0]);
+                
+                const isNoHistory = !inChatsByLid && !inChatsByNumber && !inChatsById && !nameMatch && !partialMatch;
+                
+                if (!isNoHistory) {
+                    console.log(`Filtered out: ${c.name} (${c.number}), lid=${c.lid}, id=${c.id}, inChatsByLid=${inChatsByLid}, inChatsByNumber=${inChatsByNumber}`);
+                }
+                
+                return isNoHistory;
+            });
+            
+            console.log('Filtered no-history contacts:', filteredContacts.length);
+            
+            const uniqueNums = new Set();
+            targetItems = [];
+            for (const c of filteredContacts) {
+                if (!uniqueNums.has(c.number)) {
+                    uniqueNums.add(c.number);
+                    targetItems.push({
+                        id: c.id || c.number + '@c.us',
+                        name: c.name,
+                        number: c.number,
+                        lid: c.lid,
+                        isGroup: false
+                    });
+                }
+            }
+            console.log('Found NO HISTORY contacts:', targetItems.length);
         } else {
             const chats = await client.getChats();
-            targetItems = chats
-                .filter(chat => !excludeGroups || !chat.isGroup)
-                .map(chat => ({
-                    id: chat.id._serialized,
-                    name: chat.name,
-                    isGroup: chat.isGroup
-                }));
+            const seenIds = new Set();
+            targetItems = [];
+            for (const chat of chats) {
+                if (excludeGroups && chat.isGroup) continue;
+                if (!seenIds.has(chat.id._serialized)) {
+                    seenIds.add(chat.id._serialized);
+                    targetItems.push({
+                        id: chat.id._serialized,
+                        name: chat.name,
+                        isGroup: chat.isGroup
+                    });
+                }
+            }
+        }
+        
+        // 在广播开始前，打印目标列表供确认
+        console.log('Broadcast targets preview (first 10):', targetItems.slice(0, 10).map(t => ({ name: t.name, id: t.id })));
+        console.log('Total targets:', targetItems.length);
+        
+        // 首次发送延迟
+        if (randomInterval) {
+            const initialDelay = Math.floor(Math.random() * 5000 + 2000); // 2-7秒
+            console.log(`Starting broadcast in ${initialDelay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, initialDelay));
         }
         
         broadcastProgress = {
@@ -906,21 +1274,57 @@ app.post('/api/broadcast', async (req, res) => {
         
         io.emit('broadcast-progress', broadcastProgress);
         
+        let messageCount = 0;
+        
         for (const item of targetItems) {
             if (!broadcastProgress.running) break;
+            
+            // 检查是否在允许的发送时间段内
+            if (respectHours) {
+                const now = new Date();
+                const hour = now.getHours();
+                if (hour < 9 || hour >= 22) {
+                    console.log('Outside sending hours (9:00-22:00), skipping...');
+                    broadcastProgress.results.push({ 
+                        name: item.name, 
+                        status: 'skipped',
+                        error: 'Outside sending hours (9:00-22:00)' 
+                    });
+                    broadcastProgress.current++;
+                    io.emit('broadcast-progress', broadcastProgress);
+                    continue;
+                }
+            }
+            
+            // 每发送 5-10 条后随机暂停 10-30 秒
+            if (randomPause && messageCount > 0 && messageCount % Math.floor(Math.random() * 6 + 5) === 0) {
+                const pauseTime = Math.floor(Math.random() * 20000 + 10000);
+                console.log(`Taking a break for ${pauseTime}ms...`);
+                await new Promise(resolve => setTimeout(resolve, pauseTime));
+            }
             
             try {
                 let finalMessage = message;
                 if (personalize && item.name) {
                     finalMessage = message.replace(/{name}/g, item.name);
                 }
-                const chatId = item.id._serialized || item.id;
+                // 如果启用消息随机化，对消息内容进行微调
+                if (randomizeMsg) {
+                    finalMessage = randomizeMessage(finalMessage);
+                }
+                // 使用正确的 chat ID
+                let chatId = item.id;
+                if (!chatId.includes('@')) {
+                    // 如果没有 @，根据 lid 判断格式
+                    chatId = item.lid ? item.lid + '@lid' : item.number + '@c.us';
+                }
                 console.log('Sending to:', item.name, chatId);
                 await client.sendMessage(chatId, finalMessage);
                 broadcastProgress.results.push({ 
                     name: item.name, 
                     status: 'success' 
                 });
+                messageCount++;
             } catch (e) {
                 broadcastProgress.results.push({ 
                     name: item.name, 
@@ -932,7 +1336,16 @@ app.post('/api/broadcast', async (req, res) => {
             broadcastProgress.current++;
             io.emit('broadcast-progress', broadcastProgress);
             
-            await new Promise(resolve => setTimeout(resolve, interval));
+            // 计算随机间隔
+            let actualInterval = interval;
+            if (randomInterval) {
+                // 在基础间隔的 ±30% 范围内随机
+                const minInterval = Math.max(3000, interval * 0.7);  // 最少3秒
+                const maxInterval = interval * 1.3;
+                actualInterval = Math.floor(Math.random() * (maxInterval - minInterval) + minInterval);
+                console.log(`Next message in ${actualInterval}ms (base: ${interval}ms)`);
+            }
+            await new Promise(resolve => setTimeout(resolve, actualInterval));
         }
         
         broadcastProgress.running = false;
@@ -1776,7 +2189,18 @@ io.on('connection', (socket) => {
     socket.emit('contact-test-progress', contactTestLoop);
 });
 
-const PORT = 3000;
+// 全局错误处理
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    // 防止服务器崩溃，记录错误但继续运行
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // 防止服务器崩溃，记录错误但继续运行
+});
+
+const PORT = 3003;
 server.listen(PORT, () => {
     console.log(`Web interface running at http://localhost:${PORT}`);
 });

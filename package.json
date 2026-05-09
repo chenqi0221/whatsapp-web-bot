@@ -40,8 +40,9 @@
         "mime": "^3.0.0",
         "node-fetch": "^2.6.9",
         "node-webpmux": "3.1.7",
-        "puppeteer": "^24.31.0",
-        "socket.io": "^4.8.3"
+        "puppeteer": "^24.41.0",
+        "socket.io": "^4.8.3",
+        "whatsapp-web.js": "github:wwebjs/whatsapp-web.js#main"
     },
     "devDependencies": {
         "@commitlint/cli": "^20.4.1",

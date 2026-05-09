@@ -382,6 +382,9 @@
                 <p style="text-align: center; margin-bottom: 10px;">请扫码登录</p>
                 <img id="qrImage" src="" alt="QR Code">
             </div>
+            <div id="connectSection" style="margin-top: 15px;">
+                <button class="btn btn-primary" id="connectBtn" onclick="connectWhatsApp()">连接 WhatsApp</button>
+            </div>
         </div>
         
         <div class="tab-nav">
@@ -417,11 +420,28 @@
                             <input type="number" id="broadcastInterval" value="10000" min="1000" step="1000">
                         </div>
                     </div>
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="randomInterval" checked>
+                        <label for="randomInterval">随机间隔（更像真人，±30%波动）</label>
+                    </div>
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="randomizeMsg" checked>
+                        <label for="randomizeMsg">随机化消息内容（防检测）</label>
+                    </div>
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="respectHours" checked>
+                        <label for="respectHours">只在合理时间发送（9:00-22:00）</label>
+                    </div>
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="randomPause" checked>
+                        <label for="randomPause">随机暂停（每5-10条休息10-30秒）</label>
+                    </div>
                     <div class="form-group">
                         <label>群发对象</label>
                         <select id="targetType" onchange="toggleManualInput()">
                             <option value="chats">已有聊天记录</option>
                             <option value="contacts">所有联系人 (包括未聊天)</option>
+                            <option value="nohistory">未聊天联系人 (新好友)</option>
                             <option value="manual">手动输入号码</option>
                         </select>
                     </div>
@@ -864,6 +884,30 @@
             console.log('Connected to server');
         });
         
+        async function connectWhatsApp() {
+            const connectBtn = document.getElementById('connectBtn');
+            connectBtn.disabled = true;
+            connectBtn.textContent = '连接中...';
+            
+            try {
+                const response = await fetch('/api/connect', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (!result.success) {
+                    alert(result.message);
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = '连接 WhatsApp';
+                }
+            } catch (error) {
+                console.error('Error connecting:', error);
+                alert('连接失败');
+                connectBtn.disabled = false;
+                connectBtn.textContent = '连接 WhatsApp';
+            }
+        }
+        
         socket.on('status', (data) => {
             updateStatus(data.status, data.qr);
         });
@@ -920,6 +964,8 @@
             const badge = document.getElementById('statusBadge');
             const qrSection = document.getElementById('qrSection');
             const qrImage = document.getElementById('qrImage');
+            const connectSection = document.getElementById('connectSection');
+            const connectBtn = document.getElementById('connectBtn');
             
             badge.className = 'status-badge status-' + status;
             badge.textContent = {
@@ -928,6 +974,15 @@
                 'qr': '等待扫码',
                 'ready': '已就绪'
             }[status] || status;
+            
+            // 管理连接按钮显示
+            if (status === 'disconnected') {
+                connectSection.style.display = 'block';
+                connectBtn.disabled = false;
+                connectBtn.textContent = '连接 WhatsApp';
+            } else {
+                connectSection.style.display = 'none';
+            }
             
             if (status === 'qr' && qr) {
                 qrSection.style.display = 'block';
@@ -1043,13 +1098,65 @@
                 return;
             }
             
-            const response = await fetch('/api/contacts-list');
-            const data = await response.json();
-            if (data.error) {
-                document.getElementById('contactCount').innerHTML = '<span style="color:red">错误: ' + data.error + '</span>';
+            if (targetType === 'contacts') {
+                const response = await fetch('/api/contacts-list');
+                const data = await response.json();
+                if (data.error) {
+                    document.getElementById('contactCount').innerHTML = '<span style="color:red">错误: ' + data.error + '</span>';
+                } else {
+                    document.getElementById('contactCount').innerHTML = '<span style="color:green">所有联系人: ' + data.total + ' 个</span>';
+                }
+            } else if (targetType === 'nohistory') {
+                const response = await fetch('/api/contacts-list');
+                const data = await response.json();
+                if (data.error) {
+                    document.getElementById('contactCount').innerHTML = '<span style="color:red">错误: ' + data.error + '</span>';
+                } else {
+                    const chatsRes = await fetch('/api/chats');
+                    const chatsData = await chatsRes.json();
+                    
+                    // 构建聊天记录的 ID 集合（多种格式）
+                    const chatNumbers = new Set();
+                    const chatLids = new Set();
+                    const chatNames = new Set();
+                    
+                    if (chatsData.chats) {
+                        for (const chat of chatsData.chats) {
+                            const chatId = chat.id;
+                            if (chatId && typeof chatId === 'string') {
+                                const match = chatId.match(/^(\d+)@/);
+                                if (match) chatNumbers.add(match[1]);
+                                const lidMatch = chatId.match(/^(\d+)@lid/);
+                                if (lidMatch) chatLids.add(lidMatch[1]);
+                            }
+                            if (chat.name) {
+                                chatNames.add(chat.name.toLowerCase().trim());
+                            }
+                        }
+                    }
+                    
+                    const noHistoryCount = data.contacts.filter(c => {
+                        const inChatsByLid = c.lid && (chatNumbers.has(c.lid) || chatLids.has(c.lid));
+                        const inChatsByNumber = c.number && chatNumbers.has(c.number);
+                        const inChatsById = c.id && chatNumbers.has(c.id.split('@')[0]);
+                        const nameMatch = c.name ? chatNames.has(c.name.toLowerCase().trim()) : false;
+                        
+                        return !inChatsByLid && !inChatsByNumber && !inChatsById && !nameMatch;
+                    }).length;
+                    
+                    document.getElementById('contactCount').innerHTML = '<span style="color:green">未聊天联系人: ' + noHistoryCount + ' 个</span>';
+                }
             } else {
-                document.getElementById('contactCount').innerHTML = '<span style="color:green">获取到 ' + data.total + ' 个联系人</span>';
-                console.log('Contacts:', data.contacts?.slice(0, 3));
+                // 获取已有聊天
+                const response = await fetch('/api/chats');
+                const data = await response.json();
+                if (data.error) {
+                    document.getElementById('contactCount').innerHTML = '<span style="color:red">错误: ' + data.error + '</span>';
+                } else {
+                    const excludeGroups = document.getElementById('excludeGroups').checked;
+                    const count = excludeGroups ? data.chats.filter(c => !c.isGroup).length : data.chats.length;
+                    document.getElementById('contactCount').innerHTML = '<span style="color:green">已有聊天: ' + count + ' 个</span>';
+                }
             }
         }
         
@@ -1058,9 +1165,17 @@
         }
 
         async function startContactTestLoop() {
-            const maxAttempts = parseInt(document.getElementById('maxAttempts').value);
-            const interval = parseInt(document.getElementById('testInterval').value);
-            const stopOnSuccess = document.getElementById('stopOnSuccess').checked;
+            const maxAttemptsEl = document.getElementById('maxAttempts');
+            const testIntervalEl = document.getElementById('testInterval');
+            const stopOnSuccessEl = document.getElementById('stopOnSuccess');
+            
+            if (!maxAttemptsEl || !testIntervalEl || !stopOnSuccessEl) {
+                return;
+            }
+            
+            const maxAttempts = parseInt(maxAttemptsEl.value);
+            const interval = parseInt(testIntervalEl.value);
+            const stopOnSuccess = stopOnSuccessEl.checked;
             
             const response = await fetch('/api/contact-test/start', {
                 method: 'POST',
@@ -1069,11 +1184,15 @@
             });
             
             const result = await response.json();
-            if (result.success) {
-                document.getElementById('startTestLoop').disabled = true;
-                document.getElementById('stopTestLoop').disabled = false;
-                document.getElementById('testStatus').textContent = '运行中...';
-            } else {
+            const startTestLoop = document.getElementById('startTestLoop');
+            const stopTestLoop = document.getElementById('stopTestLoop');
+            const testStatus = document.getElementById('testStatus');
+            
+            if (result.success && startTestLoop && stopTestLoop && testStatus) {
+                startTestLoop.disabled = true;
+                stopTestLoop.disabled = false;
+                testStatus.textContent = '运行中...';
+            } else if (!result.success) {
                 alert('启动失败: ' + result.error);
             }
         }
@@ -1084,35 +1203,48 @@
             });
             
             const result = await response.json();
-            if (result.success) {
-                document.getElementById('startTestLoop').disabled = false;
-                document.getElementById('stopTestLoop').disabled = true;
-                document.getElementById('testStatus').textContent = '已停止';
+            const startTestLoop = document.getElementById('startTestLoop');
+            const stopTestLoop = document.getElementById('stopTestLoop');
+            const testStatus = document.getElementById('testStatus');
+            
+            if (result.success && startTestLoop && stopTestLoop && testStatus) {
+                startTestLoop.disabled = false;
+                stopTestLoop.disabled = true;
+                testStatus.textContent = '已停止';
             }
         }
 
         function updateContactTestProgress(data) {
-            document.getElementById('testAttempts').textContent = data.attempts;
+            // 检查元素是否存在再进行操作
+            const testAttempts = document.getElementById('testAttempts');
+            if (testAttempts) testAttempts.textContent = data.attempts;
             
-            if (data.running) {
-                document.getElementById('testStatus').textContent = '运行中...';
-                document.getElementById('startTestLoop').disabled = true;
-                document.getElementById('stopTestLoop').disabled = false;
-            } else if (data.attempts > 0) {
-                document.getElementById('testStatus').textContent = '已停止';
-                document.getElementById('startTestLoop').disabled = false;
-                document.getElementById('stopTestLoop').disabled = true;
+            const testStatus = document.getElementById('testStatus');
+            const startTestLoop = document.getElementById('startTestLoop');
+            const stopTestLoop = document.getElementById('stopTestLoop');
+            
+            if (testStatus && startTestLoop && stopTestLoop) {
+                if (data.running) {
+                    testStatus.textContent = '运行中...';
+                    startTestLoop.disabled = true;
+                    stopTestLoop.disabled = false;
+                } else if (data.attempts > 0) {
+                    testStatus.textContent = '已停止';
+                    startTestLoop.disabled = false;
+                    stopTestLoop.disabled = true;
+                }
             }
             
-            if (data.lastResult) {
+            const testResult = document.getElementById('testResult');
+            if (testResult && data.lastResult) {
                 if (data.lastResult.success) {
-                    document.getElementById('testResult').innerHTML = 
+                    testResult.innerHTML = 
                         '<span style="color:green">成功! 获取到 ' + data.lastResult.count + ' 个联系人</span>';
                 } else if (data.lastResult.error) {
-                    document.getElementById('testResult').innerHTML = 
+                    testResult.innerHTML = 
                         '<span style="color:red">错误: ' + data.lastResult.error + '</span>';
                 } else {
-                    document.getElementById('testResult').textContent = '0 个联系人';
+                    testResult.textContent = '0 个联系人';
                 }
             }
         }
@@ -1120,6 +1252,10 @@
         async function startBroadcast() {
             const message = document.getElementById('broadcastMessage').value;
             const interval = parseInt(document.getElementById('broadcastInterval').value);
+            const randomInterval = document.getElementById('randomInterval').checked;
+            const randomizeMsg = document.getElementById('randomizeMsg').checked;
+            const respectHours = document.getElementById('respectHours').checked;
+            const randomPause = document.getElementById('randomPause').checked;
             const excludeGroups = document.getElementById('excludeGroups').checked;
             const personalize = document.getElementById('personalize').checked;
             const targetType = document.getElementById('targetType').value;
@@ -1133,7 +1269,7 @@
             const response = await fetch('/api/broadcast', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message, interval, excludeGroups, personalize, targetType, manualNumbers })
+                body: JSON.stringify({ message, interval, randomInterval, randomizeMsg, respectHours, randomPause, excludeGroups, personalize, targetType, manualNumbers })
             });
             
             const result = await response.json();
