@@ -73,6 +73,27 @@
                 background: #1e90ff;
                 color: white;
             }
+            .status-retrying {
+                background: #ffa502;
+                color: white;
+                animation: pulse 1.5s infinite;
+            }
+            .status-auth_failure {
+                background: #ff4757;
+                color: white;
+            }
+
+            @keyframes pulse {
+                0% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.5;
+                }
+                100% {
+                    opacity: 1;
+                }
+            }
 
             #qrImage {
                 max-width: 300px;
@@ -1787,6 +1808,8 @@
                         authenticated: '验证中',
                         qr: '等待扫码',
                         ready: '已就绪',
+                        retrying: '重试中',
+                        auth_failure: '连接失败',
                     }[status] || status;
 
                 // 管理按钮显示
