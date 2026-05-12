@@ -3,7 +3,14 @@ const {
     setAccountLevel,
 } = require('../../services/rate-limiter');
 
-function createStatusRoutes(app, client, clientState, io, logout, initClient) {
+function createStatusRoutes(
+    app,
+    clientRef,
+    clientState,
+    io,
+    logout,
+    initClient,
+) {
     app.get('/api/status', (req, res) => {
         res.json({ status: clientState.status, qr: clientState.qr });
     });

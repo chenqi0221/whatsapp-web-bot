@@ -5,7 +5,7 @@ const {
 } = require('../../services/broadcast');
 const { canSend, setAccountLevel } = require('../../services/rate-limiter');
 
-function createBroadcastRoutes(app, client, clientState, io) {
+function createBroadcastRoutes(app, clientRef, clientState, io) {
     app.get('/api/broadcast-status', (req, res) => {
         res.json(getBroadcastProgress());
     });
@@ -47,7 +47,7 @@ function createBroadcastRoutes(app, client, clientState, io) {
             messages = [message];
         }
 
-        if (!client || clientState.status !== 'ready') {
+        if (!clientRef.client || clientState.status !== 'ready') {
             return res.json({ success: false, error: 'Client not ready' });
         }
 
@@ -73,7 +73,7 @@ function createBroadcastRoutes(app, client, clientState, io) {
                     number: num,
                 }));
             } else {
-                const chats = await client.getChats();
+                const chats = await clientRef.client.getChats();
                 const filteredChats = chats.filter((chat) => {
                     if (excludeGroups && chat.isGroup) return false;
                     if (targetType === 'groups') return chat.isGroup;
@@ -96,7 +96,7 @@ function createBroadcastRoutes(app, client, clientState, io) {
             }
 
             const result = await runBroadcast(
-                client,
+                clientRef.client,
                 {
                     targetItems,
                     messages,

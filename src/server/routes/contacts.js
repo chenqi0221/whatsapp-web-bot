@@ -1,10 +1,10 @@
-function createContactsRoutes(app, client, clientState) {
+function createContactsRoutes(app, clientRef, clientState) {
     app.get('/api/chats', async (req, res) => {
-        if (!client || clientState.status !== 'ready') {
+        if (!clientRef.client || clientState.status !== 'ready') {
             return res.json({ chats: [] });
         }
         try {
-            const chats = await client.getChats();
+            const chats = await clientRef.client.getChats();
             const chatList = chats.map((chat) => ({
                 id: chat.id._serialized,
                 name: chat.name,
@@ -19,92 +19,99 @@ function createContactsRoutes(app, client, clientState) {
     });
 
     app.get('/api/contacts-list', async (req, res) => {
-        if (!client || clientState.status !== 'ready') {
+        if (!clientRef.client || clientState.status !== 'ready') {
             return res.json({ contacts: [], error: 'Client not ready' });
         }
         try {
-            const contactsData = await client.pupPage.evaluate(async () => {
-                let contacts = [];
-                if (window.require) {
-                    try {
-                        const Collections = window.require('WAWebCollections');
-                        if (Collections && Collections.Contact) {
-                            if (Collections.Contact._index) {
-                                const allContacts = Object.values(
-                                    Collections.Contact._index,
-                                );
-                                contacts = allContacts.filter((c) => {
-                                    try {
-                                        const attrs =
-                                            c.attributes ||
-                                            (c.serialize ? c.serialize() : c);
-                                        return attrs && attrs.phoneNumber;
-                                    } catch (e) {
-                                        return false;
-                                    }
-                                });
+            const contactsData = await clientRef.client.pupPage.evaluate(
+                async () => {
+                    let contacts = [];
+                    if (window.require) {
+                        try {
+                            const Collections =
+                                window.require('WAWebCollections');
+                            if (Collections && Collections.Contact) {
+                                if (Collections.Contact._index) {
+                                    const allContacts = Object.values(
+                                        Collections.Contact._index,
+                                    );
+                                    contacts = allContacts.filter((c) => {
+                                        try {
+                                            const attrs =
+                                                c.attributes ||
+                                                (c.serialize
+                                                    ? c.serialize()
+                                                    : c);
+                                            return attrs && attrs.phoneNumber;
+                                        } catch (e) {
+                                            return false;
+                                        }
+                                    });
+                                }
+                                if (
+                                    (!contacts || contacts.length === 0) &&
+                                    Collections.Contact.findAll
+                                ) {
+                                    contacts =
+                                        await Collections.Contact.findAll();
+                                }
+                            }
+                        } catch (e) {
+                            console.log('Error WAWebCollections:', e.message);
+                        }
+                    }
+
+                    const result = [];
+                    const seenNumbers = new Set();
+
+                    for (const c of contacts || []) {
+                        try {
+                            let attrs =
+                                c.attributes ||
+                                (c.serialize ? c.serialize() : c);
+                            let number =
+                                attrs.phone ||
+                                attrs.phoneNumber ||
+                                attrs.id?.user ||
+                                attrs.userid;
+                            if (
+                                typeof number === 'object' &&
+                                number !== null &&
+                                number.user
+                            ) {
+                                number = number.user;
+                            }
+                            if (!number && attrs.id && attrs.id._serialized) {
+                                number = attrs.id._serialized.split('@')[0];
                             }
                             if (
-                                (!contacts || contacts.length === 0) &&
-                                Collections.Contact.findAll
-                            ) {
-                                contacts = await Collections.Contact.findAll();
-                            }
-                        }
-                    } catch (e) {
-                        console.log('Error WAWebCollections:', e.message);
-                    }
-                }
+                                !number ||
+                                typeof number !== 'string' ||
+                                number.length <= 5
+                            )
+                                continue;
+                            if (seenNumbers.has(number)) continue;
+                            seenNumbers.add(number);
 
-                const result = [];
-                const seenNumbers = new Set();
-
-                for (const c of contacts || []) {
-                    try {
-                        let attrs =
-                            c.attributes || (c.serialize ? c.serialize() : c);
-                        let number =
-                            attrs.phone ||
-                            attrs.phoneNumber ||
-                            attrs.id?.user ||
-                            attrs.userid;
-                        if (
-                            typeof number === 'object' &&
-                            number !== null &&
-                            number.user
-                        ) {
-                            number = number.user;
-                        }
-                        if (!number && attrs.id && attrs.id._serialized) {
-                            number = attrs.id._serialized.split('@')[0];
-                        }
-                        if (
-                            !number ||
-                            typeof number !== 'string' ||
-                            number.length <= 5
-                        )
-                            continue;
-                        if (seenNumbers.has(number)) continue;
-                        seenNumbers.add(number);
-
-                        result.push({
-                            number,
-                            name:
-                                attrs.displayName ||
-                                attrs.pushname ||
-                                attrs.shortName ||
-                                attrs.name ||
+                            result.push({
                                 number,
-                            isMe: attrs.isMe,
-                            lid: attrs.id?.user || null,
-                            id: attrs.id?._serialized || null,
-                        });
-                    } catch (e) {
-                        console.log('Error processing contact:', e.message);
+                                name:
+                                    attrs.displayName ||
+                                    attrs.pushname ||
+                                    attrs.shortName ||
+                                    attrs.name ||
+                                    number,
+                                isMe: attrs.isMe,
+                                lid: attrs.id?.user || null,
+                                id: attrs.id?._serialized || null,
+                            });
+                        } catch (e) {
+                            console.log('Error processing contact:', e.message);
+                        }
                     }
-                }
-                return { contacts: result };
-            });
+                    return { contacts: result };
+                },
+            );
 
             const contactList = contactsData.contacts
                 .filter((c) => !c.isMe)
@@ -123,11 +130,11 @@ function createContactsRoutes(app, client, clientState) {
     });
 
     app.get('/api/export-contacts', async (req, res) => {
-        if (!client || clientState.status !== 'ready') {
+        if (!clientRef.client || clientState.status !== 'ready') {
             return res.json({ error: 'Client not ready' });
         }
         try {
-            const chats = await client.getChats();
+            const chats = await clientRef.client.getChats();
             const contacts = [];
             const seenNumbers = new Set();
 
@@ -163,11 +170,11 @@ function createContactsRoutes(app, client, clientState) {
     });
 
     app.get('/api/chat/:id', async (req, res) => {
-        if (!client || clientState.status !== 'ready') {
+        if (!clientRef.client || clientState.status !== 'ready') {
             return res.json({ error: 'Client not ready' });
         }
         try {
-            const chat = await client.getChatById(req.params.id);
+            const chat = await clientRef.client.getChatById(req.params.id);
             const messages = await chat.fetchMessages({ limit: 50 });
             res.json({
                 chat: {

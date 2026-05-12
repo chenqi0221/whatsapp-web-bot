@@ -3,7 +3,7 @@ const config = require('./config/default');
 const { createApp } = require('./src/server/app');
 const { injectAntiDetectionScripts } = require('./src/services/anti-detection');
 
-let client = null;
+const clientRef = { client: null };
 const clientState = {
     status: 'disconnected',
     qr: null,
@@ -24,18 +24,18 @@ const MAX_RETRY = 3;
 
 function initClient(socketIo) {
     io = socketIo;
-    if (client) {
+    if (clientRef.client) {
         try {
-            client.destroy();
+            clientRef.client.destroy();
         } catch (e) {
             // ignore
         }
-        client = null;
+        clientRef.client = null;
     }
 
-    client = new Client(clientConfig);
+    clientRef.client = new Client(clientConfig);
 
-    client.on('qr', (qr) => {
+    clientRef.client.on('qr', (qr) => {
         clientState.qr = qr;
         clientState.status = 'qr';
         initRetryCount = 0;
@@ -43,23 +43,23 @@ function initClient(socketIo) {
         if (io) io.emit('status', { status: 'qr', qr: clientState.qr });
     });
 
-    client.on('authenticated', () => {
+    clientRef.client.on('authenticated', () => {
         clientState.status = 'authenticated';
         initRetryCount = 0;
         console.log('Authenticated');
         if (io) io.emit('status', { status: 'authenticated', qr: null });
     });
 
-    client.on('ready', () => {
+    clientRef.client.on('ready', () => {
         clientState.status = 'ready';
         clientState.qr = null;
         initRetryCount = 0;
         console.log('\n\n===== WhatsApp Ready! =====\n');
-        injectAntiDetectionScripts(client);
+        injectAntiDetectionScripts(clientRef.client);
         if (io) io.emit('status', { status: 'ready', qr: null });
     });
 
-    client.on('auth_failure', (msg) => {
+    clientRef.client.on('auth_failure', (msg) => {
         clientState.status = 'auth_failure';
         console.log('Auth failure:', msg);
         if (io)
@@ -70,7 +70,7 @@ function initClient(socketIo) {
             });
     });
 
-    client.on('disconnected', (reason) => {
+    clientRef.client.on('disconnected', (reason) => {
         clientState.status = 'disconnected';
         console.log('Disconnected:', reason);
         if (io) io.emit('status', { status: 'disconnected', qr: null });
@@ -84,7 +84,7 @@ async function initializeWithRetry() {
         console.log(
             `Initializing client (attempt ${initRetryCount + 1}/${MAX_RETRY})...`,
         );
-        await client.initialize();
+        await clientRef.client.initialize();
         console.log('Client initialization completed');
         initRetryCount = 0;
     } catch (error) {
@@ -104,7 +104,7 @@ async function initializeWithRetry() {
                 });
 
             setTimeout(() => {
-                if (client) {
+                if (clientRef.client) {
                     initializeWithRetry();
                 }
             }, delay);
@@ -122,14 +122,14 @@ async function initializeWithRetry() {
 }
 
 async function logout() {
-    if (client) {
+    if (clientRef.client) {
         try {
-            await client.destroy();
+            await clientRef.client.destroy();
             console.log('Client destroyed');
         } catch (e) {
             console.error('Error destroying client:', e);
         }
-        client = null;
+        clientRef.client = null;
     }
 
     clientState.status = 'disconnected';
@@ -159,7 +159,7 @@ const {
     app,
     server,
     io: socketIo,
-} = createApp(client, clientState, logout, initClient);
+} = createApp(clientRef, clientState, logout, initClient);
 
 initClient(socketIo);
 
