@@ -1691,6 +1691,50 @@
                 console.log('Auto reply triggered:', data);
             });
 
+            socket.on('broadcast-current', (data) => {
+                updateActivityPanel(data);
+            });
+
+            function updateActivityPanel(data) {
+                const currentActivity =
+                    document.getElementById('currentActivity');
+                const currentContact =
+                    document.getElementById('currentContact');
+                const broadcastProgressText = document.getElementById(
+                    'broadcastProgressText',
+                );
+                const successFailCount =
+                    document.getElementById('successFailCount');
+                const dailySentCount =
+                    document.getElementById('dailySentCount');
+                const activityProgressFill = document.getElementById(
+                    'activityProgressFill',
+                );
+
+                if (data.status === 'sending') {
+                    currentActivity.textContent = '正在发送...';
+                    currentActivity.className = 'activity-value active';
+                } else if (data.status === 'success') {
+                    currentActivity.textContent = '发送成功';
+                    currentActivity.className = 'activity-value success';
+                } else if (data.status === 'failed') {
+                    currentActivity.textContent = '发送失败';
+                    currentActivity.className = 'activity-value error';
+                }
+
+                currentContact.textContent = data.name || data.number || '-';
+                broadcastProgressText.textContent =
+                    data.index + ' / ' + data.total;
+
+                // 更新进度条
+                const percent =
+                    data.total > 0
+                        ? Math.round((data.index / data.total) * 100)
+                        : 0;
+                activityProgressFill.style.width = percent + '%';
+                activityProgressFill.textContent = percent + '%';
+            }
+
             function showTab(tabId) {
                 document
                     .querySelectorAll('.tab-content')
@@ -2267,6 +2311,10 @@
                 const progressText = document.getElementById('progressText');
                 const startBtn = document.getElementById('startBroadcast');
                 const stopBtn = document.getElementById('stopBroadcast');
+                const successFailCount =
+                    document.getElementById('successFailCount');
+                const dailySentCount =
+                    document.getElementById('dailySentCount');
 
                 if (data.running || data.current > 0) {
                     progressDiv.style.display = 'block';
@@ -2300,6 +2348,22 @@
                             ? ` | 今日已发: ${data.dailySent}/${data.dailyLimit}`
                             : '';
                     progressText.textContent = `完成！发送: ${successCount}, 失败: ${failCount}${dailyInfo}`;
+                }
+
+                // 更新活动面板的统计信息
+                const successCount = data.results.filter(
+                    (r) => r.status === 'success',
+                ).length;
+                const failCount = data.results.filter(
+                    (r) => r.status === 'failed',
+                ).length;
+                if (successFailCount) {
+                    successFailCount.textContent =
+                        successCount + ' / ' + failCount;
+                }
+                if (dailySentCount && data.dailySent !== undefined) {
+                    dailySentCount.textContent =
+                        data.dailySent + ' / ' + (data.dailyLimit || 30);
                 }
             }
 

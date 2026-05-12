@@ -108,6 +108,15 @@ async function runBroadcast(client, options, io) {
     for (const item of targetItems) {
         if (!broadcastProgress.running) break;
 
+        // 广播当前正在发送的联系人
+        io.emit('broadcast-current', {
+            name: item.name,
+            number: item.number,
+            index: broadcastProgress.current + 1,
+            total: broadcastProgress.total,
+            status: 'sending',
+        });
+
         const sendCheck = canSend();
         if (!sendCheck.allowed) {
             io.emit('broadcast-status', {
@@ -194,10 +203,29 @@ async function runBroadcast(client, options, io) {
                 0,
                 limit.dailyMax - broadcastProgress.dailySent,
             );
+
+            // 广播成功状态
+            io.emit('broadcast-current', {
+                name: item.name,
+                number: item.number,
+                index: broadcastProgress.current + 1,
+                total: broadcastProgress.total,
+                status: 'success',
+            });
         } catch (e) {
             recordSend(false);
             broadcastProgress.results.push({
                 name: item.name,
+                status: 'failed',
+                error: e.message,
+            });
+
+            // 广播失败状态
+            io.emit('broadcast-current', {
+                name: item.name,
+                number: item.number,
+                index: broadcastProgress.current + 1,
+                total: broadcastProgress.total,
                 status: 'failed',
                 error: e.message,
             });
