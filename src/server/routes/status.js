@@ -3,7 +3,7 @@ const {
     setAccountLevel,
 } = require('../../services/rate-limiter');
 
-function createStatusRoutes(app, client, clientStatus, qrCode) {
+function createStatusRoutes(app, client, clientStatus, qrCode, io) {
     app.get('/api/status', (req, res) => {
         res.json({ status: clientStatus, qr: qrCode });
     });
@@ -17,6 +17,12 @@ function createStatusRoutes(app, client, clientStatus, qrCode) {
         setAccountLevel(level);
         res.json({ success: true, level });
     });
+
+    if (io) {
+        io.on('connection', (socket) => {
+            socket.emit('status', { status: clientStatus, qr: qrCode });
+        });
+    }
 }
 
 module.exports = { createStatusRoutes };

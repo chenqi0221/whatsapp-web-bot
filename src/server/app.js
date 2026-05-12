@@ -17,7 +17,7 @@ function createApp(client, clientStatus, qrCode) {
     app.use(express.static(path.join(__dirname, '../../public')));
     app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 
-    createStatusRoutes(app, client, clientStatus, qrCode);
+    createStatusRoutes(app, client, clientStatus, qrCode, io);
     createContactsRoutes(app, client, clientStatus);
     createBroadcastRoutes(app, client, clientStatus, io);
 
