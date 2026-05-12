@@ -1644,14 +1644,17 @@
                     });
                     const result = await response.json();
 
-                    if (!result.success) {
-                        alert(result.message);
+                    if (result.success) {
+                        // 连接请求已发送，等待二维码
+                        console.log(result.message);
+                    } else {
+                        alert(result.error || result.message);
                         connectBtn.disabled = false;
                         connectBtn.textContent = '连接 WhatsApp';
                     }
                 } catch (error) {
                     console.error('Error connecting:', error);
-                    alert('连接失败');
+                    alert('连接请求发送失败');
                     connectBtn.disabled = false;
                     connectBtn.textContent = '连接 WhatsApp';
                 }

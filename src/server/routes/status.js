@@ -3,9 +3,41 @@ const {
     setAccountLevel,
 } = require('../../services/rate-limiter');
 
-function createStatusRoutes(app, client, clientState, io, logout) {
+function createStatusRoutes(app, client, clientState, io, logout, initClient) {
     app.get('/api/status', (req, res) => {
         res.json({ status: clientState.status, qr: clientState.qr });
+    });
+
+    app.post('/api/connect', async (req, res) => {
+        try {
+            if (clientState.status === 'ready') {
+                return res.json({
+                    success: true,
+                    message: 'Already connected',
+                });
+            }
+
+            // 重置状态
+            clientState.status = 'disconnected';
+            clientState.qr = null;
+
+            // 重新初始化客户端
+            if (initClient && io) {
+                initClient(io);
+                res.json({
+                    success: true,
+                    message: 'Reinitializing client, please wait for QR code',
+                });
+            } else {
+                res.json({
+                    success: false,
+                    error: 'Init function not available',
+                });
+            }
+        } catch (e) {
+            console.error('Connect error:', e);
+            res.json({ success: false, error: e.message });
+        }
     });
 
     app.post('/api/logout', async (req, res) => {

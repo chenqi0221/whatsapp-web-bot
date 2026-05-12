@@ -124,11 +124,11 @@ const {
     app,
     server,
     io: socketIo,
-} = createApp(client, clientState, logout);
+} = createApp(client, clientState, logout, initClient);
 
 initClient(socketIo);
 
-module.exports = { logout };
+module.exports = { logout, initClient };
 
 server.listen(config.server.port, () => {
     console.log(
