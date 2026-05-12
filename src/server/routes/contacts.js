@@ -1,6 +1,6 @@
-function createContactsRoutes(app, client, clientStatus) {
+function createContactsRoutes(app, client, clientState) {
     app.get('/api/chats', async (req, res) => {
-        if (!client || clientStatus !== 'ready') {
+        if (!client || clientState.status !== 'ready') {
             return res.json({ chats: [] });
         }
         try {
@@ -19,7 +19,7 @@ function createContactsRoutes(app, client, clientStatus) {
     });
 
     app.get('/api/contacts-list', async (req, res) => {
-        if (!client || clientStatus !== 'ready') {
+        if (!client || clientState.status !== 'ready') {
             return res.json({ contacts: [], error: 'Client not ready' });
         }
         try {
@@ -123,7 +123,7 @@ function createContactsRoutes(app, client, clientStatus) {
     });
 
     app.get('/api/export-contacts', async (req, res) => {
-        if (!client || clientStatus !== 'ready') {
+        if (!client || clientState.status !== 'ready') {
             return res.json({ error: 'Client not ready' });
         }
         try {
@@ -163,7 +163,7 @@ function createContactsRoutes(app, client, clientStatus) {
     });
 
     app.get('/api/chat/:id', async (req, res) => {
-        if (!client || clientStatus !== 'ready') {
+        if (!client || clientState.status !== 'ready') {
             return res.json({ error: 'Client not ready' });
         }
         try {

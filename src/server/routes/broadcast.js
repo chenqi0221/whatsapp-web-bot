@@ -5,7 +5,7 @@ const {
 } = require('../../services/broadcast');
 const { canSend, setAccountLevel } = require('../../services/rate-limiter');
 
-function createBroadcastRoutes(app, client, clientStatus, io) {
+function createBroadcastRoutes(app, client, clientState, io) {
     app.get('/api/broadcast-status', (req, res) => {
         res.json(getBroadcastProgress());
     });
@@ -47,7 +47,7 @@ function createBroadcastRoutes(app, client, clientStatus, io) {
             messages = [message];
         }
 
-        if (!client || clientStatus !== 'ready') {
+        if (!client || clientState.status !== 'ready') {
             return res.json({ success: false, error: 'Client not ready' });
         }
 

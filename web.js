@@ -4,8 +4,10 @@ const { createApp } = require('./src/server/app');
 const { injectAntiDetectionScripts } = require('./src/services/anti-detection');
 
 let client = null;
-let clientStatus = 'disconnected';
-let qrCode = null;
+const clientState = {
+    status: 'disconnected',
+    qr: null,
+};
 
 const clientConfig = {
     authStrategy: new LocalAuth({ dataPath: config.whatsapp.authPath }),
@@ -31,35 +33,39 @@ function initClient(socketIo) {
     client = new Client(clientConfig);
 
     client.on('qr', (qr) => {
-        qrCode = qr;
-        clientStatus = 'qr';
+        clientState.qr = qr;
+        clientState.status = 'qr';
         console.log('QR code received');
-        if (io) io.emit('status', { status: 'qr', qr: qrCode });
+        if (io) io.emit('status', { status: 'qr', qr: clientState.qr });
     });
 
     client.on('authenticated', () => {
-        clientStatus = 'authenticated';
+        clientState.status = 'authenticated';
         console.log('Authenticated');
         if (io) io.emit('status', { status: 'authenticated', qr: null });
     });
 
     client.on('ready', () => {
-        clientStatus = 'ready';
-        qrCode = null;
+        clientState.status = 'ready';
+        clientState.qr = null;
         console.log('\n\n===== WhatsApp Ready! =====\n');
         injectAntiDetectionScripts(client);
         if (io) io.emit('status', { status: 'ready', qr: null });
     });
 
     client.on('auth_failure', (msg) => {
-        clientStatus = 'auth_failure';
+        clientState.status = 'auth_failure';
         console.log('Auth failure:', msg);
         if (io)
-            io.emit('status', { status: 'auth_failure', qr: null, error: msg });
+            io.emit('status', {
+                status: 'auth_failure',
+                qr: null,
+                error: msg,
+            });
     });
 
     client.on('disconnected', (reason) => {
-        clientStatus = 'disconnected';
+        clientState.status = 'disconnected';
         console.log('Disconnected:', reason);
         if (io) io.emit('status', { status: 'disconnected', qr: null });
     });
@@ -71,7 +77,7 @@ function initClient(socketIo) {
         })
         .catch((error) => {
             console.error('Error initializing client:', error);
-            clientStatus = 'auth_failure';
+            clientState.status = 'auth_failure';
             if (io)
                 io.emit('status', {
                     status: 'auth_failure',
@@ -80,15 +86,6 @@ function initClient(socketIo) {
                 });
         });
 }
-
-const {
-    // eslint-disable-next-line no-unused-vars
-    app,
-    server,
-    io: socketIo,
-} = createApp(client, clientStatus, qrCode, logout);
-
-initClient(socketIo);
 
 async function logout() {
     if (client) {
@@ -101,8 +98,8 @@ async function logout() {
         client = null;
     }
 
-    clientStatus = 'disconnected';
-    qrCode = null;
+    clientState.status = 'disconnected';
+    clientState.qr = null;
 
     const fs = require('fs');
     const path = require('path');
@@ -121,6 +118,15 @@ async function logout() {
         io.emit('status', { status: 'disconnected', qr: null });
     }
 }
+
+const {
+    // eslint-disable-next-line no-unused-vars
+    app,
+    server,
+    io: socketIo,
+} = createApp(client, clientState, logout);
+
+initClient(socketIo);
 
 module.exports = { logout };
 
