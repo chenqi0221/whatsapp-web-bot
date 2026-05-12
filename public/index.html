@@ -446,6 +446,14 @@
                     >
                         连接 WhatsApp
                     </button>
+                    <button
+                        class="btn btn-danger"
+                        id="logoutBtn"
+                        onclick="logoutWhatsApp()"
+                        style="display: none"
+                    >
+                        退出登录
+                    </button>
                 </div>
             </div>
 
@@ -1636,6 +1644,7 @@
                 const connectSection =
                     document.getElementById('connectSection');
                 const connectBtn = document.getElementById('connectBtn');
+                const logoutBtn = document.getElementById('logoutBtn');
 
                 badge.className = 'status-badge status-' + status;
                 badge.textContent =
@@ -1646,11 +1655,19 @@
                         ready: '已就绪',
                     }[status] || status;
 
-                // 管理连接按钮显示
+                // 管理按钮显示
                 if (status === 'disconnected') {
                     connectSection.style.display = 'block';
+                    connectBtn.style.display = 'inline-block';
+                    logoutBtn.style.display = 'none';
                     connectBtn.disabled = false;
                     connectBtn.textContent = '连接 WhatsApp';
+                } else if (status === 'ready') {
+                    connectSection.style.display = 'block';
+                    connectBtn.style.display = 'none';
+                    logoutBtn.style.display = 'inline-block';
+                    logoutBtn.disabled = false;
+                    logoutBtn.textContent = '退出登录';
                 } else {
                     connectSection.style.display = 'none';
                 }
@@ -1666,6 +1683,41 @@
 
                 if (status === 'ready') {
                     loadChats();
+                }
+            }
+
+            async function logoutWhatsApp() {
+                if (
+                    !confirm(
+                        '确定要退出登录吗？这将清除所有登录数据，下次需要重新扫码。',
+                    )
+                ) {
+                    return;
+                }
+
+                const logoutBtn = document.getElementById('logoutBtn');
+                logoutBtn.disabled = true;
+                logoutBtn.textContent = '退出中...';
+
+                try {
+                    const response = await fetch('/api/logout', {
+                        method: 'POST',
+                    });
+                    const result = await response.json();
+
+                    if (result.success) {
+                        alert('已退出登录');
+                        location.reload();
+                    } else {
+                        alert('退出失败: ' + result.error);
+                        logoutBtn.disabled = false;
+                        logoutBtn.textContent = '退出登录';
+                    }
+                } catch (error) {
+                    console.error('Logout error:', error);
+                    alert('退出失败');
+                    logoutBtn.disabled = false;
+                    logoutBtn.textContent = '退出登录';
                 }
             }
 

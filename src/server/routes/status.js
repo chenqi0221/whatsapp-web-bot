@@ -3,9 +3,18 @@ const {
     setAccountLevel,
 } = require('../../services/rate-limiter');
 
-function createStatusRoutes(app, client, clientStatus, qrCode, io) {
+function createStatusRoutes(app, client, clientStatus, qrCode, io, logout) {
     app.get('/api/status', (req, res) => {
         res.json({ status: clientStatus, qr: qrCode });
+    });
+
+    app.post('/api/logout', async (req, res) => {
+        try {
+            await logout();
+            res.json({ success: true, message: 'Logged out successfully' });
+        } catch (e) {
+            res.json({ success: false, error: e.message });
+        }
     });
 
     app.get('/api/daily-stats', (req, res) => {

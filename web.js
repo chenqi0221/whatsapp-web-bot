@@ -81,10 +81,48 @@ function initClient(socketIo) {
         });
 }
 
-// eslint-disable-next-line no-unused-vars
-const { app, server, io: socketIo } = createApp(client, clientStatus, qrCode);
+const {
+    // eslint-disable-next-line no-unused-vars
+    app,
+    server,
+    io: socketIo,
+} = createApp(client, clientStatus, qrCode, logout);
 
 initClient(socketIo);
+
+async function logout() {
+    if (client) {
+        try {
+            await client.destroy();
+            console.log('Client destroyed');
+        } catch (e) {
+            console.error('Error destroying client:', e);
+        }
+        client = null;
+    }
+
+    clientStatus = 'disconnected';
+    qrCode = null;
+
+    const fs = require('fs');
+    const path = require('path');
+    const authPath = path.resolve(config.whatsapp.authPath);
+
+    if (fs.existsSync(authPath)) {
+        try {
+            fs.rmSync(authPath, { recursive: true, force: true });
+            console.log('Auth data cleared');
+        } catch (e) {
+            console.error('Error clearing auth data:', e);
+        }
+    }
+
+    if (io) {
+        io.emit('status', { status: 'disconnected', qr: null });
+    }
+}
+
+module.exports = { logout };
 
 server.listen(config.server.port, () => {
     console.log(

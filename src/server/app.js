@@ -8,7 +8,7 @@ const { createStatusRoutes } = require('./routes/status');
 const { createContactsRoutes } = require('./routes/contacts');
 const { createBroadcastRoutes } = require('./routes/broadcast');
 
-function createApp(client, clientStatus, qrCode) {
+function createApp(client, clientStatus, qrCode, logout) {
     const app = express();
     const server = http.createServer(app);
     const io = new Server(server);
@@ -17,7 +17,7 @@ function createApp(client, clientStatus, qrCode) {
     app.use(express.static(path.join(__dirname, '../../public')));
     app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 
-    createStatusRoutes(app, client, clientStatus, qrCode, io);
+    createStatusRoutes(app, client, clientStatus, qrCode, io, logout);
     createContactsRoutes(app, client, clientStatus);
     createBroadcastRoutes(app, client, clientStatus, io);
 
