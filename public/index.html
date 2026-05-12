@@ -417,6 +417,45 @@
                 border-radius: 4px;
                 font-size: 12px;
             }
+
+            .activity-info {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+                margin-top: 15px;
+            }
+
+            .activity-row {
+                display: flex;
+                flex-direction: column;
+                padding: 8px;
+                background: #f8f9fa;
+                border-radius: 6px;
+            }
+
+            .activity-label {
+                font-size: 12px;
+                color: #666;
+                margin-bottom: 2px;
+            }
+
+            .activity-value {
+                font-size: 14px;
+                font-weight: 600;
+                color: #333;
+            }
+
+            .activity-value.active {
+                color: #667eea;
+            }
+
+            .activity-value.success {
+                color: #2ed573;
+            }
+
+            .activity-value.error {
+                color: #ff4757;
+            }
         </style>
     </head>
     <body>
@@ -437,6 +476,54 @@
                         请扫码登录
                     </p>
                     <img id="qrImage" src="" alt="QR Code" />
+                </div>
+                <div id="activityPanel" style="display: none">
+                    <div class="activity-info">
+                        <div class="activity-row">
+                            <span class="activity-label">当前操作</span>
+                            <span id="currentActivity" class="activity-value"
+                                >空闲</span
+                            >
+                        </div>
+                        <div class="activity-row">
+                            <span class="activity-label">当前联系人</span>
+                            <span id="currentContact" class="activity-value"
+                                >-</span
+                            >
+                        </div>
+                        <div class="activity-row">
+                            <span class="activity-label">群发进度</span>
+                            <span
+                                id="broadcastProgressText"
+                                class="activity-value"
+                                >0 / 0</span
+                            >
+                        </div>
+                        <div class="activity-row">
+                            <span class="activity-label">成功/失败</span>
+                            <span id="successFailCount" class="activity-value"
+                                >0 / 0</span
+                            >
+                        </div>
+                        <div class="activity-row">
+                            <span class="activity-label">今日发送</span>
+                            <span id="dailySentCount" class="activity-value"
+                                >0 / 30</span
+                            >
+                        </div>
+                    </div>
+                    <div
+                        class="progress-bar"
+                        style="margin-top: 10px; height: 20px"
+                    >
+                        <div
+                            class="progress-fill"
+                            id="activityProgressFill"
+                            style="width: 0%; font-size: 10px"
+                        >
+                            0%
+                        </div>
+                    </div>
                 </div>
                 <div id="connectSection" style="margin-top: 15px">
                     <button
@@ -1672,13 +1759,20 @@
                     connectSection.style.display = 'none';
                 }
 
+                const activityPanel = document.getElementById('activityPanel');
+
                 if (status === 'qr' && qr) {
                     qrSection.style.display = 'block';
+                    activityPanel.style.display = 'none';
                     qrImage.src =
                         'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' +
                         encodeURIComponent(qr);
+                } else if (status === 'ready') {
+                    qrSection.style.display = 'none';
+                    activityPanel.style.display = 'block';
                 } else {
                     qrSection.style.display = 'none';
+                    activityPanel.style.display = 'none';
                 }
 
                 if (status === 'ready') {
