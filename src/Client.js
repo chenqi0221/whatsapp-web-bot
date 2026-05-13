@@ -1256,13 +1256,34 @@ class Client extends EventEmitter {
     /**
      * Closes the client
      */
-    async destroy() {
+    async destroy(keepBrowser = false) {
         const browser = this.pupBrowser;
         const isConnected = browser?.isConnected?.();
-        if (isConnected) {
-            await browser.close();
+
+        if (keepBrowser) {
+            // 只关闭页面，不关闭浏览器（用于切换账号）
+            if (this.pupPage && !this.pupPage.isClosed()) {
+                await this.pupPage.close();
+            }
+            // 不关闭浏览器，只清理引用
+            this.pupPage = null;
+        } else {
+            // 完全销毁，关闭浏览器
+            if (isConnected) {
+                await browser.close();
+            }
+            this.pupBrowser = null;
+            this.pupPage = null;
         }
+
         await this.authStrategy.destroy();
+    }
+
+    /**
+     * Check if the client is ready for API calls
+     */
+    isReady() {
+        return this.pupPage !== null && this.pupPage !== undefined;
     }
 
     /**

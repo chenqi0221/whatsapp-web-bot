@@ -7,6 +7,7 @@ const config = require('../../config/default');
 const { createStatusRoutes } = require('./routes/status');
 const { createContactsRoutes } = require('./routes/contacts');
 const { createBroadcastRoutes } = require('./routes/broadcast');
+const { listSavedSessions } = require('../services/session-manager');
 
 function createApp(clientRef, clientState, logout, initClient) {
     const app = express();
@@ -17,7 +18,15 @@ function createApp(clientRef, clientState, logout, initClient) {
     app.use(express.static(path.join(__dirname, '../../public')));
     app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 
-    createStatusRoutes(app, clientRef, clientState, io, logout, initClient);
+    createStatusRoutes(
+        app,
+        clientRef,
+        clientState,
+        io,
+        logout,
+        initClient,
+        listSavedSessions,
+    );
     createContactsRoutes(app, clientRef, clientState);
     createBroadcastRoutes(app, clientRef, clientState, io);
 

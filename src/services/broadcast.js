@@ -2,21 +2,33 @@ const { canSend, recordSend, getCurrentLimit } = require('./rate-limiter');
 const { randomizeMessage } = require('./message-randomizer');
 const { simulatePreSendBehavior } = require('../simulators/behavior');
 
-let broadcastProgress = {
-    running: false,
-    current: 0,
-    total: 0,
-    results: [],
-    message: null,
-    interval: 10000,
-};
+// 广播进度按 clientId 隔离存储
+const broadcastProgressMap = new Map();
 
-function getBroadcastProgress() {
-    return broadcastProgress;
+function getProgress(clientId = 'default') {
+    if (!broadcastProgressMap.has(clientId)) {
+        broadcastProgressMap.set(clientId, {
+            running: false,
+            current: 0,
+            total: 0,
+            results: [],
+            message: null,
+            interval: 10000,
+            dailySent: 0,
+            dailyLimit: 0,
+            remaining: 0,
+        });
+    }
+    return broadcastProgressMap.get(clientId);
 }
 
-function stopBroadcast() {
-    broadcastProgress.running = false;
+function getBroadcastProgress(clientId = 'default') {
+    return getProgress(clientId);
+}
+
+function stopBroadcast(clientId = 'default') {
+    const progress = getProgress(clientId);
+    progress.running = false;
 }
 
 function calculateInterval(baseInterval, randomInterval, limit) {
@@ -80,7 +92,10 @@ async function runBroadcast(client, options, io) {
         respectHours = true,
         randomPause = true,
         personalize = false,
+        clientId = 'default',
     } = options;
+
+    const broadcastProgress = getProgress(clientId);
 
     if (broadcastProgress.running) {
         throw new Error('Broadcast already running');
@@ -88,17 +103,15 @@ async function runBroadcast(client, options, io) {
 
     const limit = getCurrentLimit();
 
-    broadcastProgress = {
-        running: true,
-        current: 0,
-        total: targetItems.length,
-        results: [],
-        message: messages[0],
-        interval,
-        dailySent: 0,
-        dailyLimit: limit.dailyMax,
-        remaining: limit.dailyMax,
-    };
+    broadcastProgress.running = true;
+    broadcastProgress.current = 0;
+    broadcastProgress.total = targetItems.length;
+    broadcastProgress.results = [];
+    broadcastProgress.message = messages[0];
+    broadcastProgress.interval = interval;
+    broadcastProgress.dailySent = 0;
+    broadcastProgress.dailyLimit = limit.dailyMax;
+    broadcastProgress.remaining = limit.dailyMax;
 
     io.emit('broadcast-progress', broadcastProgress);
 

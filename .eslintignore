@@ -6,3 +6,4 @@ docs
 .wa-version
 .wwebjs_auth
 .wwebjs_cache
+public/js/app.js

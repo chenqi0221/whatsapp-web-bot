@@ -27,7 +27,9 @@ async function simulateHumanTyping(page, text, options = {}) {
         });
 
         await new Promise((r) => setTimeout(r, 100 + Math.random() * 200));
-        await page.keyboard.press('Control+a');
+        await page.keyboard.down('Control');
+        await page.keyboard.press('a');
+        await page.keyboard.up('Control');
         await new Promise((r) => setTimeout(r, 50 + Math.random() * 100));
         await page.keyboard.press('Delete');
         await new Promise((r) => setTimeout(r, 50 + Math.random() * 100));

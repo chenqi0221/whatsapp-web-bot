@@ -5,7 +5,7 @@ module.exports = {
     },
     whatsapp: {
         authPath: './.wwebjs_auth_v2',
-        headless: true,
+        headless: false,
         timeout: 120000,
         puppeteerArgs: [
             '--no-sandbox',

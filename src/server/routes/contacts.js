@@ -1,6 +1,10 @@
 function createContactsRoutes(app, clientRef, clientState) {
     app.get('/api/chats', async (req, res) => {
-        if (!clientRef.client || clientState.status !== 'ready') {
+        if (
+            !clientRef.client ||
+            clientState.status !== 'ready' ||
+            !clientRef.client.pupPage
+        ) {
             return res.json({ chats: [] });
         }
         try {
@@ -19,7 +23,11 @@ function createContactsRoutes(app, clientRef, clientState) {
     });
 
     app.get('/api/contacts-list', async (req, res) => {
-        if (!clientRef.client || clientState.status !== 'ready') {
+        if (
+            !clientRef.client ||
+            clientState.status !== 'ready' ||
+            !clientRef.client.pupPage
+        ) {
             return res.json({ contacts: [], error: 'Client not ready' });
         }
         try {
@@ -130,7 +138,11 @@ function createContactsRoutes(app, clientRef, clientState) {
     });
 
     app.get('/api/export-contacts', async (req, res) => {
-        if (!clientRef.client || clientState.status !== 'ready') {
+        if (
+            !clientRef.client ||
+            clientState.status !== 'ready' ||
+            !clientRef.client.pupPage
+        ) {
             return res.json({ error: 'Client not ready' });
         }
         try {
@@ -170,7 +182,11 @@ function createContactsRoutes(app, clientRef, clientState) {
     });
 
     app.get('/api/chat/:id', async (req, res) => {
-        if (!clientRef.client || clientState.status !== 'ready') {
+        if (
+            !clientRef.client ||
+            clientState.status !== 'ready' ||
+            !clientRef.client.pupPage
+        ) {
             return res.json({ error: 'Client not ready' });
         }
         try {

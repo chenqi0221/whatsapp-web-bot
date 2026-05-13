@@ -29,6 +29,19 @@ class LocalAuth extends BaseAuthStrategy {
 
     async beforeBrowserInitialized() {
         const puppeteerOpts = this.client.options.puppeteer;
+
+        // 如果使用了 browserWSEndpoint 或 browserURL，说明是连接到已有浏览器
+        // 此时无法更改 userDataDir，跳过设置
+        if (puppeteerOpts.browserWSEndpoint || puppeteerOpts.browserURL) {
+            // 仍然记录 userDataDir 用于其他操作（如 logout）
+            const sessionDirName = this.clientId
+                ? `session-${this.clientId}`
+                : 'session';
+            this.userDataDir = path.join(this.dataPath, sessionDirName);
+            fs.mkdirSync(this.userDataDir, { recursive: true });
+            return;
+        }
+
         const sessionDirName = this.clientId
             ? `session-${this.clientId}`
             : 'session';

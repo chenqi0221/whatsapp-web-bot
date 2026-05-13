@@ -47,7 +47,11 @@ function createBroadcastRoutes(app, clientRef, clientState, io) {
             messages = [message];
         }
 
-        if (!clientRef.client || clientState.status !== 'ready') {
+        if (
+            !clientRef.client ||
+            clientState.status !== 'ready' ||
+            !clientRef.client.pupPage
+        ) {
             return res.json({ success: false, error: 'Client not ready' });
         }
 
@@ -72,6 +76,158 @@ function createBroadcastRoutes(app, clientRef, clientState, io) {
                     name: num,
                     number: num,
                 }));
+            } else if (targetType === 'nohistory') {
+                // 获取所有联系人和所有聊天
+                const [contactsData, chats] = await Promise.all([
+                    clientRef.client.pupPage.evaluate(async () => {
+                        let contacts = [];
+                        if (window.require) {
+                            try {
+                                const Collections =
+                                    window.require('WAWebCollections');
+                                if (Collections && Collections.Contact) {
+                                    if (Collections.Contact._index) {
+                                        const allContacts = Object.values(
+                                            Collections.Contact._index,
+                                        );
+                                        contacts = allContacts.filter((c) => {
+                                            try {
+                                                const attrs =
+                                                    c.attributes ||
+                                                    (c.serialize
+                                                        ? c.serialize()
+                                                        : c);
+                                                return (
+                                                    attrs && attrs.phoneNumber
+                                                );
+                                            } catch (e) {
+                                                return false;
+                                            }
+                                        });
+                                    }
+                                    if (
+                                        (!contacts || contacts.length === 0) &&
+                                        Collections.Contact.findAll
+                                    ) {
+                                        contacts =
+                                            await Collections.Contact.findAll();
+                                    }
+                                }
+                            } catch (e) {
+                                console.log(
+                                    'Error WAWebCollections:',
+                                    e.message,
+                                );
+                            }
+                        }
+
+                        const result = [];
+                        const seenNumbers = new Set();
+
+                        for (const c of contacts || []) {
+                            try {
+                                let attrs =
+                                    c.attributes ||
+                                    (c.serialize ? c.serialize() : c);
+                                let number =
+                                    attrs.phone ||
+                                    attrs.phoneNumber ||
+                                    attrs.id?.user ||
+                                    attrs.userid;
+                                if (
+                                    typeof number === 'object' &&
+                                    number !== null &&
+                                    number.user
+                                ) {
+                                    number = number.user;
+                                }
+                                if (
+                                    !number &&
+                                    attrs.id &&
+                                    attrs.id._serialized
+                                ) {
+                                    number = attrs.id._serialized.split('@')[0];
+                                }
+                                if (
+                                    !number ||
+                                    typeof number !== 'string' ||
+                                    number.length <= 5
+                                )
+                                    continue;
+                                if (seenNumbers.has(number)) continue;
+                                seenNumbers.add(number);
+
+                                result.push({
+                                    number,
+                                    name:
+                                        attrs.displayName ||
+                                        attrs.pushname ||
+                                        attrs.shortName ||
+                                        attrs.name ||
+                                        number,
+                                    isMe: attrs.isMe,
+                                    lid: attrs.id?.user || null,
+                                    id: attrs.id?._serialized || null,
+                                });
+                            } catch (e) {
+                                console.log(
+                                    'Error processing contact:',
+                                    e.message,
+                                );
+                            }
+                        }
+                        return { contacts: result };
+                    }),
+                    clientRef.client.getChats(),
+                ]);
+
+                // 构建已有聊天的号码集合
+                const chatNumbers = new Set();
+                const chatLids = new Set();
+                const chatNames = new Set();
+
+                for (const chat of chats) {
+                    if (excludeGroups && chat.isGroup) continue;
+                    const chatId = chat.id?._serialized || chat.id?.user || '';
+                    if (chatId) {
+                        const match = chatId.match(/^(\d+)@/);
+                        if (match) chatNumbers.add(match[1]);
+                        const lidMatch = chatId.match(/^(\d+)@lid/);
+                        if (lidMatch) chatLids.add(lidMatch[1]);
+                    }
+                    if (chat.name) {
+                        chatNames.add(chat.name.toLowerCase().trim());
+                    }
+                }
+
+                // 过滤出未聊天的联系人
+                const noHistoryContacts = contactsData.contacts.filter((c) => {
+                    if (c.isMe) return false;
+                    const inChatsByLid =
+                        c.lid &&
+                        (chatNumbers.has(c.lid) || chatLids.has(c.lid));
+                    const inChatsByNumber =
+                        c.number && chatNumbers.has(c.number);
+                    const inChatsById =
+                        c.id && chatNumbers.has(c.id.split('@')[0]);
+                    const nameMatch = c.name
+                        ? chatNames.has(c.name.toLowerCase().trim())
+                        : false;
+
+                    return (
+                        !inChatsByLid &&
+                        !inChatsByNumber &&
+                        !inChatsById &&
+                        !nameMatch
+                    );
+                });
+
+                targetItems = noHistoryContacts.map((c) => ({
+                    id: c.id || c.number + '@c.us',
+                    name: c.name,
+                    number: c.number,
+                    lid: c.lid || null,
+                }));
             } else {
                 const chats = await clientRef.client.getChats();
                 const filteredChats = chats.filter((chat) => {
@@ -95,6 +251,9 @@ function createBroadcastRoutes(app, clientRef, clientState, io) {
                 });
             }
 
+            // 记录当前账号，用于隔离不同账号的广播状态
+            const currentClientId = clientRef.currentClientId || 'default';
+
             const result = await runBroadcast(
                 clientRef.client,
                 {
@@ -109,6 +268,7 @@ function createBroadcastRoutes(app, clientRef, clientState, io) {
                     respectHours,
                     randomPause,
                     personalize,
+                    clientId: currentClientId,
                 },
                 io,
             );
