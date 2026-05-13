@@ -1,0 +1,50 @@
+{
+  "build": {
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev",
+    "devPath": "http://localhost:1420",
+    "distDir": "../dist"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": true
+      },
+      "http": {
+        "all": true,
+        "request": true
+      },
+      "process": {
+        "all": true
+      }
+    },
+    "windows": [
+      {
+        "title": "WhatsApp Bot",
+        "width": 1400,
+        "height": 900,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "minWidth": 800,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:*; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
+    },
+    "bundle": {
+      "active": false,
+      "targets": "all",
+      "identifier": "com.whatsappbot.app",
+      "icon": [],
+      "windows": {
+        "webviewInstallMode": {
+          "type": "downloadBootstrapper"
+        }
+      }
+    }
+  }
+}

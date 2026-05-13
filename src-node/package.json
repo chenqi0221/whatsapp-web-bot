@@ -1,0 +1,19 @@
+{
+  "name": "whatsapp-bot-node",
+  "version": "3.0.0",
+  "description": "WhatsApp Bot Node.js Backend Service",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3",
+    "whatsapp-web.js": "github:wwebjs/whatsapp-web.js#main",
+    "puppeteer": "^24.41.0",
+    "qrcode": "^1.5.3",
+    "cors": "^2.8.5"
+  }
+}

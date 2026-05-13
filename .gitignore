@@ -84,3 +84,7 @@ typings/
 
 # Test files
 test-*.js
+
+# Tauri build output
+dist/
+src-tauri/target/
