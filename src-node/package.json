@@ -9,11 +9,16 @@
     "dev": "node index.js"
   },
   "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
     "express": "^5.2.1",
-    "socket.io": "^4.8.3",
-    "whatsapp-web.js": "github:wwebjs/whatsapp-web.js#main",
+    "express-rate-limit": "^8.5.1",
+    "helmet": "^8.1.0",
     "puppeteer": "^24.41.0",
     "qrcode": "^1.5.3",
-    "cors": "^2.8.5"
+    "socket.io": "^4.8.3",
+    "whatsapp-web.js": "github:wwebjs/whatsapp-web.js#main",
+    "winston": "^3.19.0"
   }
 }

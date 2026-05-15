@@ -1,3 +1,5 @@
+const logger = require('../utils/logger');
+
 async function simulateHumanTyping(page, text, options = {}) {
     if (!page || !text) return;
 
@@ -84,7 +86,7 @@ async function simulateHumanTyping(page, text, options = {}) {
             await page.keyboard.type(char, { delay });
         }
     } catch (e) {
-        console.error('Error during human typing simulation:', e.message);
+        logger.error('Error during human typing simulation:', { error: e.message });
     }
 }
 

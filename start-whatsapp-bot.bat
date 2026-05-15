@@ -30,29 +30,41 @@ if errorlevel 1 (
 echo [2/3] 项目目录: %cd%
 echo.
 
-REM 检查 node_modules 是否存在
+REM 检查根目录 node_modules
 if not exist "node_modules" (
-    echo [3/3] 正在安装依赖...
+    echo [3/5] 正在安装前端依赖...
     call npm install
     if errorlevel 1 (
-        echo [错误] 依赖安装失败
+        echo [错误] 前端依赖安装失败
         pause
         exit /b 1
     )
 ) else (
-    echo [3/3] 依赖已安装
+    echo [3/5] 前端依赖已安装
 )
+
+REM 检查 src-node/node_modules
+echo [4/5] 正在安装后端依赖...
+cd /d "%cd%\src-node"
+if not exist "node_modules" (
+    call npm install
+    if errorlevel 1 (
+        echo [错误] 后端依赖安装失败
+        pause
+        exit /b 1
+    )
+)
+cd /d "E:\办公小程序\WhatsApp自动化库\whatsapp-web.js"
 
 echo.
 echo ==========================================
 echo    正在启动 WhatsApp Bot...
-echo    启动后会自动打开浏览器访问管理界面
-echo    地址: http://localhost:3003
+echo    后端 API 服务启动中...
 echo ==========================================
 echo.
 
-REM 启动服务
-node web.js
+REM 启动 Node.js 后端服务
+node src-node/index.js
 
 REM 如果服务异常退出，暂停显示错误
 if errorlevel 1 (

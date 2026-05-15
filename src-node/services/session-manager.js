@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const config = require('../config/default');
+const logger = require('../utils/logger');
 const { listAccounts } = require('./account-store');
 
 function getAuthPath() {
@@ -31,9 +32,9 @@ function clearAllSessions() {
                     });
                 }
             }
-            console.log('All session directories cleared');
+            logger.info('All session directories cleared');
         } catch (e) {
-            console.error('Error clearing sessions:', e.message);
+            logger.error('Error clearing sessions:', { error: e.message });
         }
     }
 }
@@ -44,10 +45,10 @@ function clearSession(sessionId) {
     if (fs.existsSync(sessionPath)) {
         try {
             fs.rmSync(sessionPath, { recursive: true, force: true });
-            console.log(`Session ${sessionId} cleared`);
+            logger.info(`Session ${sessionId} cleared`);
             return true;
         } catch (e) {
-            console.error('Error clearing session:', e.message);
+            logger.error('Error clearing session:', { error: e.message });
             return false;
         }
     }

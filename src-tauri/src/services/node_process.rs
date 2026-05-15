@@ -5,13 +5,16 @@ use tauri::Manager;
 static NODE_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(3003));
 
 pub async fn start_node_server(app_handle: tauri::AppHandle) -> Result<(), String> {
-    // 尝试多个可能的路径来找到 src-node
     let possible_paths = [
-        // 1. 从 cwd (src-tauri) 的父目录找（项目根目录）
-        std::env::current_dir().ok().map(|cwd| {
+        // 1. 便携版：与 exe 同目录的 src-node
+        std::env::current_exe().ok().and_then(|exe| {
+            exe.parent().map(|exe_dir| exe_dir.join("src-node").join("index.js"))
+        }),
+        // 2. 开发模式：从 cwd (src-tauri) 的父目录找
+        std::env::current_dir().ok().and_then(|cwd| {
             cwd.parent().map(|parent| parent.join("src-node").join("index.js"))
-        }).flatten(),
-        // 2. 从可执行文件路径向上找（release 模式: target/release -> 项目根目录）
+        }),
+        // 3. release 构建：从 target/release 向上两级到项目根
         std::env::current_exe().ok().and_then(|exe| {
             exe.parent().and_then(|dir| {
                 dir.parent().map(|project_root| project_root.join("src-node").join("index.js"))

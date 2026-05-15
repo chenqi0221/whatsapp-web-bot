@@ -4,6 +4,9 @@ function randomizeMessage(
     lengthRandomize = true,
 ) {
     let result = message;
+    if (!result || typeof result !== 'string') {
+        return { message: String(result || ''), greeting: null }
+    }
 
     const greetings = [
         'Hi',

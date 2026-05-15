@@ -1,0 +1,131 @@
+:root {
+  --sidebar-width: 220px;
+  --sidebar-collapsed-width: 64px;
+  --header-height: 56px;
+  --transition-duration: 0.3s;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Fira Code', 'JetBrains Mono', monospace;
+}
+
+[data-theme="default"] {
+  --accent: #2563eb;
+  --accent-light: #3b82f6;
+  --accent-dark: #1d4ed8;
+  --accent-faint: rgba(37, 99, 235, 0.1);
+  --accent-glow: rgba(37, 99, 235, 0.3);
+  --sidebar-bg: #0f172a;
+  --sidebar-bg-end: #1e293b;
+  --sidebar-hover: rgba(255, 255, 255, 0.06);
+  --sidebar-active: rgba(37, 99, 235, 0.25);
+  --sidebar-text: #f1f5f9;
+  --sidebar-text-active: #ffffff;
+  --sidebar-divider: rgba(255, 255, 255, 0.06);
+  --header-bg: rgba(255, 255, 255, 0.85);
+  --header-border: rgba(0, 0, 0, 0.06);
+  --content-bg: #f8fafc;
+  --card-bg: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.06);
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --el-color-primary: #2563eb;
+  --el-color-primary-light-3: #3b82f6;
+  --el-color-primary-light-5: #60a5fa;
+  --el-color-primary-light-7: #93c5fd;
+  --el-color-primary-light-9: #dbeafe;
+  --el-color-primary-dark-2: #1d4ed8;
+}
+
+[data-theme="purple"] {
+  --accent: #7c3aed;
+  --accent-light: #8b5cf6;
+  --accent-dark: #6d28d9;
+  --accent-faint: rgba(124, 58, 237, 0.1);
+  --accent-glow: rgba(124, 58, 237, 0.3);
+  --sidebar-bg: #0f0728;
+  --sidebar-bg-end: #1e103c;
+  --sidebar-hover: rgba(255, 255, 255, 0.06);
+  --sidebar-active: rgba(124, 58, 237, 0.25);
+  --sidebar-text: #f5f3ff;
+  --sidebar-text-active: #ffffff;
+  --sidebar-divider: rgba(255, 255, 255, 0.06);
+  --header-bg: rgba(255, 255, 255, 0.85);
+  --header-border: rgba(0, 0, 0, 0.06);
+  --content-bg: #faf8ff;
+  --card-bg: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.06);
+  --text-primary: #1e1b4b;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --el-color-primary: #7c3aed;
+  --el-color-primary-light-3: #8b5cf6;
+  --el-color-primary-light-5: #a78bfa;
+  --el-color-primary-light-7: #c4b5fd;
+  --el-color-primary-light-9: #ede9fe;
+  --el-color-primary-dark-2: #6d28d9;
+}
+
+[data-theme="green"] {
+  --accent: #059669;
+  --accent-light: #10b981;
+  --accent-dark: #047857;
+  --accent-faint: rgba(5, 150, 105, 0.1);
+  --accent-glow: rgba(5, 150, 105, 0.3);
+  --sidebar-bg: #022c22;
+  --sidebar-bg-end: #064e3b;
+  --sidebar-hover: rgba(255, 255, 255, 0.06);
+  --sidebar-active: rgba(5, 150, 105, 0.25);
+  --sidebar-text: #ecfdf5;
+  --sidebar-text-active: #ffffff;
+  --sidebar-divider: rgba(255, 255, 255, 0.06);
+  --header-bg: rgba(255, 255, 255, 0.85);
+  --header-border: rgba(0, 0, 0, 0.06);
+  --content-bg: #f0fdf4;
+  --card-bg: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.06);
+  --text-primary: #064e3b;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --el-color-primary: #059669;
+  --el-color-primary-light-3: #10b981;
+  --el-color-primary-light-5: #34d399;
+  --el-color-primary-light-7: #6ee7b7;
+  --el-color-primary-light-9: #d1fae5;
+  --el-color-primary-dark-2: #047857;
+}
+
+[data-theme="orange"] {
+  --accent: #ea580c;
+  --accent-light: #f97316;
+  --accent-dark: #c2410c;
+  --accent-faint: rgba(234, 88, 12, 0.1);
+  --accent-glow: rgba(234, 88, 12, 0.3);
+  --sidebar-bg: #431407;
+  --sidebar-bg-end: #7c2d12;
+  --sidebar-hover: rgba(255, 255, 255, 0.06);
+  --sidebar-active: rgba(234, 88, 12, 0.25);
+  --sidebar-text: #fff7ed;
+  --sidebar-text-active: #ffffff;
+  --sidebar-divider: rgba(255, 255, 255, 0.06);
+  --header-bg: rgba(255, 255, 255, 0.85);
+  --header-border: rgba(0, 0, 0, 0.06);
+  --content-bg: #fff7ed;
+  --card-bg: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.06);
+  --text-primary: #7c2d12;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --el-color-primary: #ea580c;
+  --el-color-primary-light-3: #f97316;
+  --el-color-primary-light-5: #fb923c;
+  --el-color-primary-light-7: #fdba74;
+  --el-color-primary-light-9: #ffedd5;
+  --el-color-primary-dark-2: #c2410c;
+}

@@ -1,6 +1,7 @@
 const { canSend, recordSend, getCurrentLimit } = require('./rate-limiter');
 const { randomizeMessage } = require('./message-randomizer');
 const { simulatePreSendBehavior } = require('../simulators/behavior');
+const logger = require('../utils/logger');
 
 // 广播进度按 clientId 隔离存储
 const broadcastProgressMap = new Map();
@@ -13,6 +14,7 @@ function getProgress(clientId = 'default') {
             total: 0,
             results: [],
             message: null,
+            currentTarget: null,
             interval: 10000,
             dailySent: 0,
             dailyLimit: 0,
@@ -82,7 +84,6 @@ function calculateInterval(baseInterval, randomInterval, limit) {
 async function runBroadcast(client, options, io) {
     const {
         targetItems,
-        messages,
         interval = 10000,
         randomInterval = true,
         randomizeMsg = true,
@@ -94,12 +95,24 @@ async function runBroadcast(client, options, io) {
         personalize = false,
         clientId = 'default',
     } = options;
+    let { messages } = options;
+
+    logger.info(`[runBroadcast] Starting for client=${clientId}, targets=${(targetItems || []).length}, msgs=${(messages || []).length}`);
 
     const broadcastProgress = getProgress(clientId);
 
     if (broadcastProgress.running) {
         throw new Error('Broadcast already running');
     }
+
+    // 过滤无效消息，避免 undefined 导致崩溃
+    messages = (messages || []).filter(m => typeof m === 'string' && m.trim());
+    if (messages.length === 0) {
+        broadcastProgress.running = false;
+        throw new Error('没有有效的消息内容');
+    }
+
+    logger.info(`[runBroadcast] After filter: ${messages.length} valid messages, first: "${messages[0].substring(0, 30)}..."`);
 
     const limit = getCurrentLimit();
 
@@ -108,10 +121,13 @@ async function runBroadcast(client, options, io) {
     broadcastProgress.total = targetItems.length;
     broadcastProgress.results = [];
     broadcastProgress.message = messages[0];
+    broadcastProgress.currentTarget = null;
     broadcastProgress.interval = interval;
     broadcastProgress.dailySent = 0;
     broadcastProgress.dailyLimit = limit.dailyMax;
     broadcastProgress.remaining = limit.dailyMax;
+
+    logger.info(`Broadcast started: client=${clientId}, total=${targetItems.length}, interval=${interval}ms`);
 
     io.emit('broadcast-progress', broadcastProgress);
 
@@ -119,7 +135,10 @@ async function runBroadcast(client, options, io) {
     let batchCount = 0;
 
     for (const item of targetItems) {
-        if (!broadcastProgress.running) break;
+        if (!broadcastProgress.running) {
+            logger.info(`Broadcast stopped by user for client ${clientId}, progress: ${broadcastProgress.current}/${broadcastProgress.total}`);
+            break;
+        }
 
         // 广播当前正在发送的联系人
         io.emit('broadcast-current', {
@@ -129,9 +148,17 @@ async function runBroadcast(client, options, io) {
             total: broadcastProgress.total,
             status: 'sending',
         });
+        broadcastProgress.currentTarget = {
+            name: item.name,
+            number: item.number,
+            index: broadcastProgress.current + 1,
+            total: broadcastProgress.total,
+            status: 'sending',
+        };
 
         const sendCheck = canSend();
         if (!sendCheck.allowed) {
+            logger.info(`Broadcast daily limit reached for client ${clientId}, sent=${sendCheck.sent}/${limit.dailyMax}`);
             io.emit('broadcast-status', {
                 type: 'daily_limit_reached',
                 message: `Daily limit of ${limit.dailyMax} reached.`,
@@ -143,11 +170,19 @@ async function runBroadcast(client, options, io) {
             const now = new Date();
             const hour = now.getHours();
             if (hour < 9 || hour >= 22) {
-                const waitMinutes =
-                    hour < 9 ? (9 - hour) * 60 : (24 - hour + 9) * 60;
+                const waitMinutes = hour < 9
+                    ? (9 - hour) * 60
+                    : (24 - hour + 9) * 60
+                const resumeTime = new Date(now.getTime() + waitMinutes * 60 * 1000)
+                io.emit('broadcast-status', {
+                    type: 'outside_hours',
+                    message: `当前不在发送时段（9:00-22:00），将在 ${resumeTime.toLocaleTimeString('zh-CN')} 自动恢复`,
+                    resumeTime: resumeTime.toISOString(),
+                    waitMinutes,
+                })
                 await new Promise((r) =>
                     setTimeout(r, waitMinutes * 60 * 1000),
-                );
+                )
             }
         }
 
@@ -190,20 +225,37 @@ async function runBroadcast(client, options, io) {
                 chatId = item.lid ? item.lid + '@lid' : item.number + '@c.us';
             }
 
-            if (simulateTyping || simulateMouse) {
+            if (simulateTyping) {
                 try {
                     await simulatePreSendBehavior(
                         client,
                         chatId,
                         finalMessage,
-                        simulateTyping,
+                        true,
+                        simulateMouse,
+                    );
+                    await client.pupPage.keyboard.press('Enter');
+                    await new Promise((r) => setTimeout(r, 500));
+                } catch (e) {
+                    logger.info('Behavior simulation failed:', { data: e.message });
+                    await client.sendMessage(chatId, finalMessage);
+                }
+            } else if (simulateMouse) {
+                try {
+                    await simulatePreSendBehavior(
+                        client,
+                        chatId,
+                        finalMessage,
+                        false,
+                        true,
                     );
                 } catch (e) {
-                    console.log('Behavior simulation failed:', e.message);
+                    logger.info('Mouse simulation failed:', { data: e.message });
                 }
+                await client.sendMessage(chatId, finalMessage);
+            } else {
+                await client.sendMessage(chatId, finalMessage);
             }
-
-            await client.sendMessage(chatId, finalMessage);
             recordSend(true);
             messageCount++;
 
@@ -211,6 +263,7 @@ async function runBroadcast(client, options, io) {
                 name: item.name,
                 status: 'success',
             });
+            broadcastProgress.currentTarget.status = 'success';
             broadcastProgress.dailySent = sendCheck.sent + 1;
             broadcastProgress.remaining = Math.max(
                 0,
@@ -232,6 +285,7 @@ async function runBroadcast(client, options, io) {
                 status: 'failed',
                 error: e.message,
             });
+            broadcastProgress.currentTarget.status = 'failed';
 
             // 广播失败状态
             io.emit('broadcast-current', {
@@ -259,6 +313,7 @@ async function runBroadcast(client, options, io) {
     }
 
     broadcastProgress.running = false;
+    logger.info(`Broadcast finished for client ${clientId}: success=${messageCount}/${broadcastProgress.total}, failed=${broadcastProgress.current - messageCount}`);
     io.emit('broadcast-progress', broadcastProgress);
 
     return {

@@ -5,11 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:backend": "cd src-node && node index.js",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "install:all": "npm install && cd src-node && npm install",
+    "start": "node src-node/index.js"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.0",

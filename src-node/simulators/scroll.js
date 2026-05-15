@@ -1,3 +1,5 @@
+const logger = require('../utils/logger');
+
 async function simulateHumanScroll(page) {
     if (!page) return;
 
@@ -15,7 +17,7 @@ async function simulateHumanScroll(page) {
 
         await new Promise((r) => setTimeout(r, 200 + Math.random() * 500));
     } catch (e) {
-        console.error('Error during scroll simulation:', e.message);
+        logger.error('Error during scroll simulation:', { error: e.message });
     }
 }
 

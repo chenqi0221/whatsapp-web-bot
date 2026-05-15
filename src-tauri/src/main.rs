@@ -1,5 +1,4 @@
-// 暂时禁用 windows_subsystem 以便看到错误信息
-// #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
 mod services;
@@ -40,6 +39,13 @@ fn main() {
             system::delete_account,
             system::set_account_level,
             system::get_daily_stats,
+            system::create_account,
+            system::search_accounts,
+            system::get_account_detail,
+            system::update_account,
+            system::batch_delete_accounts,
+            system::get_account_stats,
+            system::get_account_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

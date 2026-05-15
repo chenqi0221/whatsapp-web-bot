@@ -1,3 +1,5 @@
+const logger = require('../utils/logger');
+
 function createContactsRoutes(app, clientRef, clientState) {
     app.get('/api/chats', async (req, res) => {
         if (
@@ -75,7 +77,7 @@ function createContactsRoutes(app, clientRef, clientState) {
                                 }
                             }
                         } catch (e) {
-                            console.log('Error WAWebCollections:', e.message);
+                            logger.info('Error WAWebCollections:', { data: e.message });
                         }
                     }
 
@@ -124,7 +126,7 @@ function createContactsRoutes(app, clientRef, clientState) {
                                 id: attrs.id?._serialized || null,
                             });
                         } catch (e) {
-                            console.log('Error processing contact:', e.message);
+                            logger.info('Error processing contact:', { data: e.message });
                         }
                     }
                     return { contacts: result };
@@ -142,7 +144,7 @@ function createContactsRoutes(app, clientRef, clientState) {
 
             res.json({ contacts: contactList, total: contactList.length });
         } catch (e) {
-            console.log('API Error:', e.message);
+            logger.info('API Error:', { data: e.message });
             res.json({ contacts: [], error: e.message });
         }
     });
@@ -188,6 +190,163 @@ function createContactsRoutes(app, clientRef, clientState) {
             res.send(csv);
         } catch (e) {
             res.json({ error: e.message });
+        }
+    });
+
+    app.get('/api/contacts/unchatted', async (req, res) => {
+        if (
+            !clientRef.client ||
+            clientState.status !== 'ready' ||
+            !clientRef.client.pupPage
+        ) {
+            return res.json({ contacts: [], error: 'Client not ready', total: 0 });
+        }
+        try {
+            // 获取联系人（与 /api/contacts-list 同样的逻辑）
+            const contactsData = await clientRef.client.pupPage.evaluate(
+                async () => {
+                    let contacts = [];
+                    if (window.require) {
+                        try {
+                            const Collections =
+                                window.require('WAWebCollections');
+                            if (Collections && Collections.Contact) {
+                                if (Collections.Contact._index) {
+                                    const allContacts = Object.values(
+                                        Collections.Contact._index,
+                                    );
+                                    contacts = allContacts.filter((c) => {
+                                        try {
+                                            const attrs =
+                                                c.attributes ||
+                                                (c.serialize
+                                                    ? c.serialize()
+                                                    : c);
+                                            return attrs && attrs.phoneNumber;
+                                        } catch (e) {
+                                            return false;
+                                        }
+                                    });
+                                }
+                                if (
+                                    (!contacts || contacts.length === 0) &&
+                                    Collections.Contact.findAll
+                                ) {
+                                    contacts =
+                                        await Collections.Contact.findAll();
+                                }
+                            }
+                        } catch (e) {
+                            logger.info('Error WAWebCollections:', { data: e.message });
+                        }
+                    }
+
+                    const result = [];
+                    const seenNumbers = new Set();
+
+                    for (const c of contacts || []) {
+                        try {
+                            let attrs =
+                                c.attributes ||
+                                (c.serialize ? c.serialize() : c);
+                            let number =
+                                attrs.phone ||
+                                attrs.phoneNumber ||
+                                attrs.id?.user ||
+                                attrs.userid;
+                            if (
+                                typeof number === 'object' &&
+                                number !== null &&
+                                number.user
+                            ) {
+                                number = number.user;
+                            }
+                            if (!number && attrs.id && attrs.id._serialized) {
+                                number = attrs.id._serialized.split('@')[0];
+                            }
+                            if (
+                                !number ||
+                                typeof number !== 'string' ||
+                                number.length <= 5
+                            )
+                                continue;
+                            if (seenNumbers.has(number)) continue;
+                            seenNumbers.add(number);
+
+                            result.push({
+                                number,
+                                name:
+                                    attrs.displayName ||
+                                    attrs.pushname ||
+                                    attrs.shortName ||
+                                    attrs.name ||
+                                    number,
+                                isMe: attrs.isMe,
+                                lid: attrs.id?.user || null,
+                                id: attrs.id?._serialized || null,
+                            });
+                        } catch (e) {
+                            logger.info('Error processing contact:', { data: e.message });
+                        }
+                    }
+                    return { contacts: result };
+                },
+            );
+
+            // 获取聊天列表
+            const chats = await clientRef.client.getChats();
+
+            // 构建 chatSets，与 Contacts.vue 完全一致的逻辑
+            const chatNumbers = new Set();
+            const chatLids = new Set();
+            const chatNames = new Set();
+
+            for (const chat of chats) {
+                const chatId = chat.id?._serialized;
+                if (chatId && typeof chatId === 'string') {
+                    const match = chatId.match(/^(\d+)@/);
+                    if (match) chatNumbers.add(match[1]);
+                    const lidMatch = chatId.match(/^(\d+)@lid/);
+                    if (lidMatch) chatLids.add(lidMatch[1]);
+                }
+                if (chat.name) {
+                    chatNames.add(chat.name.toLowerCase().trim());
+                }
+            }
+
+            // 按照 Contacts.vue isContactInChats() 完全一致的逻辑筛选未聊天联系人
+            const unchattedContacts = contactsData.contacts
+                .filter((c) => !c.isMe)
+                .filter((contact) => {
+                    const inChatsByLid =
+                        contact.lid &&
+                        (chatNumbers.has(contact.lid) ||
+                            chatLids.has(contact.lid));
+                    const inChatsByNumber =
+                        contact.number && chatNumbers.has(contact.number);
+                    const inChatsById =
+                        contact.id && chatNumbers.has(contact.id.split('@')[0]);
+                    const nameMatch = contact.name
+                        ? chatNames.has(contact.name.toLowerCase().trim())
+                        : false;
+                    return !(
+                        inChatsByLid ||
+                        inChatsByNumber ||
+                        inChatsById ||
+                        nameMatch
+                    );
+                })
+                .map((c) => ({
+                    id: c.id || c.number + '@c.us',
+                    number: c.number,
+                    name: c.name,
+                    lid: c.lid || null,
+                }));
+
+            res.json({ contacts: unchattedContacts, total: unchattedContacts.length });
+        } catch (e) {
+            logger.error('Unchatted contacts error:', { data: e.message });
+            res.json({ contacts: [], error: e.message, total: 0 });
         }
     });
 

@@ -5,19 +5,22 @@ const { clearSession } = require('./session-manager');
 const { getAccount } = require('./account-store');
 const puppeteer = require('puppeteer');
 const path = require('path');
+const logger = require('../utils/logger');
 
 const clientRef = { client: null, currentClientId: null };
 const clientState = {
     status: 'disconnected',
     qr: null,
+    connectedAt: null,
 };
 
 let io = null;
 let initRetryCount = 0;
 const MAX_RETRY = 3;
 
-// 全局浏览器实例，用于复用
-let sharedBrowser = null;
+// 每个账号独立的浏览器实例
+let currentBrowser = null;
+let currentAccountId = null;
 
 function setIo(socketIo) {
     io = socketIo;
@@ -31,57 +34,91 @@ function getClientState() {
     return clientState;
 }
 
-async function getSharedBrowser(userDataDir) {
-    // 如果已有共享浏览器且在运行，复用它
-    if (sharedBrowser) {
+function buildPuppeteerOpts(userDataDir) {
+    const args = [...(config.whatsapp.puppeteerArgs || [])];
+    args.push('--disable-blink-features=AutomationControlled');
+    return {
+        headless: config.whatsapp.headless,
+        args,
+        timeout: config.whatsapp.timeout,
+        userDataDir,
+    };
+}
+
+function clearBrowserLock(userDataDir) {
+    try {
+        const fs = require('fs');
+        const lockFile = path.join(userDataDir, 'SingletonLock');
+        if (fs.existsSync(lockFile)) {
+            fs.unlinkSync(lockFile);
+            logger.info('Removed stale SingletonLock for:', { data: userDataDir });
+        }
+    } catch (e) {
+        logger.error('Error clearing browser lock:', { data: e.message });
+    }
+}
+
+async function closeCurrentBrowser() {
+    if (currentBrowser) {
         try {
-            const isConnected = sharedBrowser.isConnected?.();
+            await currentBrowser.close();
+            logger.info('Current browser closed for account:', { data: currentAccountId });
+        } catch (e) {
+            logger.error('Error closing browser:', { data: e.message });
+        }
+        currentBrowser = null;
+        currentAccountId = null;
+    }
+}
+
+async function getOrCreateBrowser(clientId) {
+    const userDataDir = path.join(config.whatsapp.authPath, `session-${clientId}`);
+
+    if (currentBrowser && currentAccountId === clientId) {
+        try {
+            const isConnected = currentBrowser.isConnected?.();
             if (isConnected) {
-                console.log('Reusing existing browser instance');
-                return sharedBrowser;
+                logger.info('Reusing existing browser for account:', { data: clientId });
+                return { browser: currentBrowser, userDataDir, wsEndpoint: currentBrowser.wsEndpoint() };
             }
         } catch (e) {
-            console.log('Existing browser disconnected, launching new one');
+            logger.info('Existing browser disconnected for account:', { data: clientId });
         }
     }
 
-    // 启动新浏览器
-    const puppeteerOpts = {
-        headless: config.whatsapp.headless,
-        args: config.whatsapp.puppeteerArgs,
-        timeout: config.whatsapp.timeout,
-        userDataDir: userDataDir,
-    };
+    if (currentBrowser && currentAccountId !== clientId) {
+        logger.info('Switching accounts, closing browser for:', { data: [currentAccountId, '->', clientId] });
+        await closeCurrentBrowser();
+    }
 
-    const browserArgs = [...(puppeteerOpts.args || [])];
-    browserArgs.push('--disable-blink-features=AutomationControlled');
+    clearBrowserLock(userDataDir);
 
-    sharedBrowser = await puppeteer.launch({
-        ...puppeteerOpts,
-        args: browserArgs,
+    const puppeteerOpts = buildPuppeteerOpts(userDataDir);
+
+    currentBrowser = await puppeteer.launch(puppeteerOpts);
+    currentAccountId = clientId;
+
+    logger.info('New browser launched for account:', { data: clientId });
+
+    currentBrowser.on('disconnected', () => {
+        logger.info('Browser disconnected for account:', { data: clientId });
+        if (currentAccountId === clientId) {
+            currentBrowser = null;
+            currentAccountId = null;
+        }
     });
 
-    console.log('New browser instance launched');
-
-    // 监听浏览器断开连接
-    sharedBrowser.on('disconnected', () => {
-        console.log('Browser disconnected');
-        sharedBrowser = null;
-    });
-
-    return sharedBrowser;
+    return { browser: currentBrowser, userDataDir, wsEndpoint: currentBrowser.wsEndpoint() };
 }
 
 async function destroyClient(keepBrowser = true) {
     if (clientRef.client) {
         try {
-            // 移除所有事件监听器，防止旧事件触发
             clientRef.client.removeAllListeners();
-            // 如果 keepBrowser 为 true，只关闭页面不关闭浏览器
             await clientRef.client.destroy(keepBrowser);
-            console.log('Client destroyed (keepBrowser:', keepBrowser, ')');
+            logger.info('Client destroyed (keepBrowser: true)');
         } catch (e) {
-            console.error('Error destroying client:', e.message);
+            logger.error('Error destroying client:', { data: e.message });
         }
         clientRef.client = null;
     }
@@ -90,49 +127,37 @@ async function destroyClient(keepBrowser = true) {
 async function initClient(socketIo, clientId = null, forceNew = false) {
     io = socketIo;
 
-    if (forceNew && clientId) {
-        clearSession(`session-${clientId}`);
+    const targetClientId = clientId || 'default';
+
+    if (forceNew && targetClientId) {
+        clearSession(`session-${targetClientId}`);
     }
 
-    const currentClientId = clientId || 'default';
+    const userDataDir = path.join(config.whatsapp.authPath, `session-${targetClientId}`);
 
-    // 使用固定的 userDataDir，让所有账号共享同一个浏览器 profile
-    // 这样切换账号时不会重启浏览器
-    const fixedUserDataDir = path.join(
-        config.whatsapp.authPath,
-        'shared-session',
-    );
-
-    // 如果需要全新登录，清除 shared session 中的数据
     if (forceNew) {
-        // 清除浏览器数据，强制重新登录
         try {
             const fs = require('fs');
-            const sessionPath = path.join(fixedUserDataDir, 'Default');
+            const sessionPath = path.join(userDataDir, 'Default');
             if (fs.existsSync(sessionPath)) {
                 fs.rmSync(sessionPath, { recursive: true, force: true });
-                console.log('Cleared shared session data for fresh login');
+                logger.info('Cleared session data for account:', { data: targetClientId });
             }
         } catch (e) {
-            console.error('Error clearing session data:', e.message);
+            logger.error('Error clearing session data:', { data: e.message });
         }
     }
 
-    // 获取或创建共享浏览器实例
-    const browser = await getSharedBrowser(fixedUserDataDir);
+    const { browser, wsEndpoint } = await getOrCreateBrowser(targetClientId);
 
-    // 销毁旧客户端（只关闭页面，不关闭浏览器）
     await destroyClient(true);
 
-    // 创建新的 LocalAuth，但使用固定的 userDataDir
     const authStrategy = new LocalAuth({
         dataPath: config.whatsapp.authPath,
-        clientId: 'shared', // 使用固定的 clientId，因为 userDataDir 已经固定了
+        clientId: targetClientId,
     });
 
-    // 手动覆盖 authStrategy 的 userDataDir 为固定路径
-    authStrategy.userDataDir = fixedUserDataDir;
-    authStrategy.clientId = currentClientId; // 但保留原始 clientId 用于其他用途
+    authStrategy.userDataDir = userDataDir;
 
     const currentClientConfig = {
         authStrategy,
@@ -140,18 +165,15 @@ async function initClient(socketIo, clientId = null, forceNew = false) {
             headless: config.whatsapp.headless,
             args: config.whatsapp.puppeteerArgs,
             timeout: config.whatsapp.timeout,
-            // 提供 browserWSEndpoint 让 Client 连接到已有浏览器
-            browserWSEndpoint: browser.wsEndpoint(),
+            browserWSEndpoint: wsEndpoint,
         },
     };
 
     clientRef.client = new Client(currentClientConfig);
-    clientRef.currentClientId = currentClientId;
+    clientRef.currentClientId = targetClientId;
 
-    // 绑定事件
-    bindClientEvents(clientRef.client, io, clientState, currentClientId);
+    bindClientEvents(clientRef.client, io, clientState, targetClientId);
 
-    // 开始初始化
     initializeWithRetry();
 }
 
@@ -160,7 +182,7 @@ function bindClientEvents(client, ioInstance, state, currentClientId) {
         state.qr = qr;
         state.status = 'qr';
         initRetryCount = 0;
-        console.log('QR code received');
+        logger.info('QR code received');
         if (ioInstance)
             ioInstance.emit('status', { status: 'qr', qr: state.qr });
     });
@@ -168,7 +190,7 @@ function bindClientEvents(client, ioInstance, state, currentClientId) {
     client.on('authenticated', () => {
         state.status = 'authenticated';
         initRetryCount = 0;
-        console.log('Authenticated');
+        logger.info('Authenticated');
 
         // 检查是否是新账号（没有对应的 account-store 记录）
         const account = getAccount(currentClientId);
@@ -189,8 +211,9 @@ function bindClientEvents(client, ioInstance, state, currentClientId) {
     client.on('ready', () => {
         state.status = 'ready';
         state.qr = null;
+        state.connectedAt = Date.now();
         initRetryCount = 0;
-        console.log('\n\n===== WhatsApp Ready! =====\n');
+        logger.info('\n\n===== WhatsApp Ready! =====\n');
         injectAntiDetectionScripts(client);
         if (ioInstance)
             ioInstance.emit('status', { status: 'ready', qr: null });
@@ -198,7 +221,7 @@ function bindClientEvents(client, ioInstance, state, currentClientId) {
 
     client.on('auth_failure', (msg) => {
         state.status = 'auth_failure';
-        console.log('Auth failure:', msg);
+        logger.info('Auth failure:', { data: msg });
         if (ioInstance)
             ioInstance.emit('status', {
                 status: 'auth_failure',
@@ -209,7 +232,8 @@ function bindClientEvents(client, ioInstance, state, currentClientId) {
 
     client.on('disconnected', (reason) => {
         state.status = 'disconnected';
-        console.log('Disconnected:', reason);
+        state.connectedAt = null;
+        logger.info('Disconnected:', { data: reason });
         if (ioInstance)
             ioInstance.emit('status', { status: 'disconnected', qr: null });
     });
@@ -217,19 +241,19 @@ function bindClientEvents(client, ioInstance, state, currentClientId) {
 
 async function initializeWithRetry() {
     try {
-        console.log(
+        logger.info(
             `Initializing client (attempt ${initRetryCount + 1}/${MAX_RETRY})...`,
         );
         await clientRef.client.initialize();
-        console.log('Client initialization completed');
+        logger.info('Client initialization completed');
         initRetryCount = 0;
     } catch (error) {
-        console.error('Error initializing client:', error.message);
+        logger.error('Error initializing client:', { data: error.message });
 
         if (initRetryCount < MAX_RETRY) {
             initRetryCount++;
             const delay = initRetryCount * 3000;
-            console.log(`Retrying in ${delay}ms...`);
+            logger.info(`Retrying in ${delay}ms...`);
 
             clientState.status = 'retrying';
             if (io)
@@ -245,7 +269,7 @@ async function initializeWithRetry() {
                 }
             }, delay);
         } else {
-            console.error('Max retries reached. Giving up.');
+            logger.error('Max retries reached. Giving up.');
             clientState.status = 'auth_failure';
             if (io)
                 io.emit('status', {
@@ -258,18 +282,8 @@ async function initializeWithRetry() {
 }
 
 async function logout() {
-    // 完全退出，关闭浏览器
-    await destroyClient(false);
-
-    // 关闭共享浏览器
-    if (sharedBrowser) {
-        try {
-            await sharedBrowser.close();
-        } catch (e) {
-            console.error('Error closing browser:', e.message);
-        }
-        sharedBrowser = null;
-    }
+    await destroyClient(true);
+    await closeCurrentBrowser();
 
     clientState.status = 'disconnected';
     clientState.qr = null;

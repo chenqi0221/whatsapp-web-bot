@@ -1,3 +1,5 @@
+const logger = require('../utils/logger');
+
 function createExtrasRoutes(app, clientRef, clientState) {
     // 搜索消息
     app.get('/api/search', async (req, res) => {
@@ -32,7 +34,7 @@ function createExtrasRoutes(app, clientRef, clientState) {
                         );
                         results.push(...matched);
                     } catch (e) {
-                        console.log('Search error in chat:', e.message);
+                        logger.info('Search error in chat:', { error: e.message });
                     }
                 }
             }

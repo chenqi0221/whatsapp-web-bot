@@ -1,3 +1,5 @@
+const logger = require('../utils/logger');
+
 function createAutoReplyRoutes(app, clientRef, clientState) {
     const autoReplies = new Map();
     let autoReplyEnabled = false;
@@ -87,7 +89,7 @@ function createAutoReplyRoutes(app, clientRef, clientState) {
                             const regex = new RegExp(keyword, 'i');
                             matched = regex.test(msg.body || '');
                         } catch (e) {
-                            console.error('Invalid regex:', e);
+                            logger.error('Invalid regex:', { error: e.message });
                         }
                         break;
                     case 'keyword':
@@ -100,7 +102,7 @@ function createAutoReplyRoutes(app, clientRef, clientState) {
                     try {
                         await msg.reply(rule.reply);
                     } catch (e) {
-                        console.error('Auto reply error:', e);
+                        logger.error('Auto reply error:', { error: e.message, stack: e.stack });
                     }
                     break;
                 }

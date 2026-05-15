@@ -1,6 +1,6 @@
 {
   "build": {
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "vite build",
     "beforeDevCommand": "npm run dev",
     "devPath": "http://localhost:1420",
     "distDir": "../dist"
@@ -36,10 +36,13 @@
       "csp": "default-src 'self'; connect-src 'self' http://localhost:*; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
     },
     "bundle": {
-      "active": false,
+      "active": true,
       "targets": "all",
       "identifier": "com.whatsappbot.app",
-      "icon": [],
+      "icon": [
+        "icons/icon.png",
+        "icons/icon.ico"
+      ],
       "windows": {
         "webviewInstallMode": {
           "type": "downloadBootstrapper"

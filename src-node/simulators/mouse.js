@@ -1,3 +1,5 @@
+const logger = require('../utils/logger');
+
 async function simulateHumanMouseMove(page, targetX, targetY) {
     if (!page) return;
 
@@ -38,7 +40,7 @@ async function simulateHumanMouseMove(page, targetX, targetY) {
             await new Promise((r) => setTimeout(r, 3 + Math.random() * 8));
         }
     } catch (e) {
-        console.error('Error during mouse move simulation:', e.message);
+        logger.error('Error during mouse move simulation:', { error: e.message });
     }
 }
 

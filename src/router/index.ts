@@ -14,6 +14,7 @@ import Profile from '@/views/Profile.vue'
 import ContactLookup from '@/views/ContactLookup.vue'
 import Stats from '@/views/Stats.vue'
 import Settings from '@/views/Settings.vue'
+import AccountManage from '@/views/AccountManage.vue'
 
 const routes = [
     {
@@ -21,6 +22,7 @@ const routes = [
         component: MainLayout,
         children: [
             { path: '', name: 'Dashboard', component: Dashboard },
+            { path: 'accounts', name: 'AccountManage', component: AccountManage },
             { path: 'broadcast', name: 'Broadcast', component: Broadcast },
             { path: 'contacts', name: 'Contacts', component: Contacts },
             { path: 'autoreply', name: 'AutoReply', component: AutoReply },

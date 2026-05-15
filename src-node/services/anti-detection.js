@@ -1,3 +1,5 @@
+const logger = require('../utils/logger');
+
 async function injectAntiDetectionScripts(client) {
     if (!client || !client.pupPage) return;
 
@@ -78,7 +80,7 @@ async function injectAntiDetectionScripts(client) {
             });
         });
     } catch (e) {
-        console.error('Failed to inject anti-detection scripts:', e.message);
+        logger.error('Failed to inject anti-detection scripts:', { error: e.message });
     }
 }
 

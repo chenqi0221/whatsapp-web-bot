@@ -1,6 +1,7 @@
 const {
     getDailyStats,
     setAccountLevel,
+    getCurrentLimit,
 } = require('../services/rate-limiter');
 const {
     createAccount,
@@ -10,6 +11,7 @@ const {
     deleteAccount,
     getAccount,
 } = require('../services/account-store');
+const logger = require('../utils/logger');
 
 function createStatusRoutes(
     app,
@@ -21,6 +23,43 @@ function createStatusRoutes(
 ) {
     app.get('/api/status', (req, res) => {
         res.json({ status: clientState.status, qr: clientState.qr });
+    });
+
+    app.get('/api/profile', async (req, res) => {
+        const profile = {
+            status: clientState.status,
+            connectedAt: clientState.connectedAt,
+            name: null,
+            number: null,
+            avatarUrl: null,
+            accountLevel: null,
+            dailyStats: getDailyStats(),
+        };
+
+        if (clientRef.client && clientState.status === 'ready' && clientRef.client.info) {
+            const info = clientRef.client.info;
+            profile.name = info.pushname || null;
+            if (info.wid) {
+                profile.number = info.wid.user || null;
+            }
+
+            try {
+                profile.avatarUrl = await clientRef.client.getProfilePicUrl(
+                    info.wid?._serialized || clientRef.client.info.me?._serialized
+                );
+            } catch (e) {
+                logger.info('Failed to get profile pic:', { data: e.message });
+            }
+        }
+
+        try {
+            const limit = getCurrentLimit();
+            profile.accountLevel = limit ? limit.label : '未知';
+        } catch (e) {
+            profile.accountLevel = '未知';
+        }
+
+        res.json(profile);
     });
 
     app.get('/api/sessions', (req, res) => {
@@ -63,7 +102,7 @@ function createStatusRoutes(
                 });
             }
         } catch (e) {
-            console.error('Connect error:', e);
+            logger.error('Connect error:', { error: e.message, stack: e.stack });
             res.json({ success: false, error: e.message });
         }
     });

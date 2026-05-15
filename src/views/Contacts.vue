@@ -180,8 +180,8 @@ const loadContacts = async () => {
       contactsApi.getContacts(),
       contactsApi.getChats()
     ])
-    contacts.value = contactsResult || []
-    chats.value = chatsResult || []
+    contacts.value = contactsResult?.contacts || []
+    chats.value = chatsResult?.chats || []
   } catch (e: any) {
     ElMessage.error('加载联系人失败: ' + e.message)
   } finally {

@@ -1,3 +1,5 @@
+const logger = require('../utils/logger');
+
 function createScheduleRoutes(app, clientRef, clientState) {
     const scheduledTasks = new Map();
     let taskInterval = null;
@@ -117,7 +119,7 @@ function createScheduleRoutes(app, clientRef, clientState) {
 
     async function executeTask(task) {
         if (!clientRef.client || clientState.status !== 'ready') {
-            console.log('Client not ready, skipping scheduled task');
+            logger.info('Client not ready, skipping scheduled task');
             return;
         }
 
@@ -143,11 +145,11 @@ function createScheduleRoutes(app, clientRef, clientState) {
                     await chat.sendMessage(task.message);
                     await new Promise(r => setTimeout(r, 1000));
                 } catch (e) {
-                    console.error('Scheduled task send error:', e);
+                    logger.error('Scheduled task send error:', { error: e.message, stack: e.stack });
                 }
             }
         } catch (e) {
-            console.error('Scheduled task execution error:', e);
+            logger.error('Scheduled task execution error:', { error: e.message, stack: e.stack });
         }
     }
 }

@@ -1,18 +1,20 @@
 const { simulateHumanTyping } = require('./typing');
 const { simulateHumanMouseMove } = require('./mouse');
 const { simulateHumanScroll } = require('./scroll');
+const logger = require('../utils/logger');
 
 async function simulatePreSendBehavior(
     client,
     chatId,
     message,
     enableTyping = true,
+    enableMouse = false,
 ) {
     if (!client || !client.pupPage) return;
     const page = client.pupPage;
 
     try {
-        if (Math.random() < 0.4) {
+        if (enableMouse && Math.random() < 0.4) {
             const viewport = await page.viewport();
             if (viewport) {
                 await simulateHumanMouseMove(
@@ -39,7 +41,7 @@ async function simulatePreSendBehavior(
 
         await new Promise((r) => setTimeout(r, 200 + Math.random() * 600));
     } catch (e) {
-        console.error('Error in pre-send behavior simulation:', e.message);
+        logger.error('Error in pre-send behavior simulation:', { error: e.message });
     }
 }
 
