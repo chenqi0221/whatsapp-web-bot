@@ -125,8 +125,32 @@ onMounted(() => {
 
 <style scoped>
 .messages {
-  padding: 0;
+  padding: 24px 28px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
+
+.messages :deep(.el-card) {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  transition: box-shadow 0.2s ease;
+}
+
+.messages :deep(.el-card:hover) {
+  box-shadow: var(--shadow-lg);
+}
+
+.messages :deep(.el-card__header) {
+  border-bottom-color: var(--border-default);
+  padding: 16px 24px;
+}
+
+.messages :deep(.el-card__body) {
+  padding: 20px 24px;
+}
+
 .card-header {
   font-weight: bold;
 }
@@ -135,21 +159,22 @@ onMounted(() => {
   overflow-y: auto;
 }
 .chat-item {
-  padding: 12px;
-  border-bottom: 1px solid #eee;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-default);
   cursor: pointer;
-  transition: background 0.3s;
+  transition: background 0.2s ease;
 }
 .chat-item:hover, .chat-item.active {
-  background: #f5f5f5;
+  background: var(--bg-secondary);
 }
 .chat-name {
   font-weight: bold;
   margin-bottom: 4px;
+  color: var(--text-primary);
 }
 .chat-preview {
   font-size: 12px;
-  color: #999;
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -169,18 +194,19 @@ onMounted(() => {
   align-items: flex-end;
 }
 .message-content {
-  background: #f5f5f5;
-  padding: 8px 12px;
-  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 10px 14px;
+  border-radius: 12px;
   max-width: 70%;
 }
 .message-item.self .message-content {
-  background: #409EFF;
+  background: var(--accent);
   color: white;
 }
 .message-time {
   font-size: 11px;
-  color: #999;
+  color: var(--text-muted);
   margin-top: 2px;
 }
 .message-input {

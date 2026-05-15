@@ -62,8 +62,32 @@ const formatTime = (timestamp: number) => {
 
 <style scoped>
 .search {
-  padding: 0;
+  padding: 24px 28px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
+
+.search :deep(.el-card) {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  transition: box-shadow 0.2s ease;
+}
+
+.search :deep(.el-card:hover) {
+  box-shadow: var(--shadow-lg);
+}
+
+.search :deep(.el-card__header) {
+  border-bottom-color: var(--border-default);
+  padding: 16px 24px;
+}
+
+.search :deep(.el-card__body) {
+  padding: 20px 24px;
+}
+
 .card-header {
   font-weight: bold;
 }
@@ -71,12 +95,17 @@ const formatTime = (timestamp: number) => {
   margin-top: 20px;
 }
 .result-item {
-  padding: 12px;
-  border-bottom: 1px solid #eee;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-default);
+  transition: background 0.2s ease;
+}
+
+.result-item:hover {
+  background: var(--bg-secondary);
 }
 .result-chat {
   font-weight: bold;
-  color: #409EFF;
+  color: var(--accent);
   margin-bottom: 4px;
 }
 .result-body {
@@ -84,6 +113,6 @@ const formatTime = (timestamp: number) => {
 }
 .result-time {
   font-size: 12px;
-  color: #999;
+  color: var(--text-muted);
 }
 </style>

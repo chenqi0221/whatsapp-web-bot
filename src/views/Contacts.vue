@@ -216,19 +216,42 @@ onMounted(() => {
 
 <style scoped>
 .contacts {
-  padding: 0;
+  padding: 24px 28px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.contacts :deep(.el-card) {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  transition: box-shadow 0.2s ease;
+}
+
+.contacts :deep(.el-card:hover) {
+  box-shadow: var(--shadow-lg);
+}
+
+.contacts :deep(.el-card__header) {
+  border-bottom-color: var(--border-default);
+  padding: 16px 24px;
+}
+
+.contacts :deep(.el-card__body) {
+  padding: 20px 24px;
 }
 
 .stats-row {
-  margin-bottom: 10px;
+  margin-bottom: 20px;
 }
 
 .stat-card {
-  transition: transform 0.3s;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .stat-card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-2px);
 }
 
 .stat-item {
@@ -241,22 +264,22 @@ onMounted(() => {
 .stat-icon {
   font-size: 40px;
   padding: 15px;
-  border-radius: 10px;
+  border-radius: 12px;
 }
 
 .stat-icon.all {
-  background: #e6f7ff;
-  color: #1890ff;
+  background: var(--accent-faint);
+  color: var(--accent);
 }
 
 .stat-icon.chatted {
-  background: #f6ffed;
-  color: #52c41a;
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success);
 }
 
 .stat-icon.unchatted {
-  background: #f5f5f5;
-  color: #8c8c8c;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
 }
 
 .stat-info {
@@ -266,12 +289,12 @@ onMounted(() => {
 .stat-value {
   font-size: 28px;
   font-weight: bold;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .stat-label {
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
   margin-top: 5px;
 }
 

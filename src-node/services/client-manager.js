@@ -208,13 +208,26 @@ function bindClientEvents(client, ioInstance, state, currentClientId) {
             ioInstance.emit('status', { status: 'authenticated', qr: null });
     });
 
-    client.on('ready', () => {
+    client.on('ready', async () => {
         state.status = 'ready';
         state.qr = null;
         state.connectedAt = Date.now();
         initRetryCount = 0;
         logger.info('\n\n===== WhatsApp Ready! =====\n');
         injectAntiDetectionScripts(client);
+
+        // 等待 client.info 加载完成，确保 /api/profile 能返回完整信息
+        let infoRetries = 0;
+        while (!client.info && infoRetries < 10) {
+            await new Promise(r => setTimeout(r, 500));
+            infoRetries++;
+        }
+        if (client.info) {
+            logger.info('Client info loaded after ready:', { data: { name: client.info.pushname, wid: client.info.wid?.user } });
+        } else {
+            logger.warn('Client info not available after ready event');
+        }
+
         if (ioInstance)
             ioInstance.emit('status', { status: 'ready', qr: null });
     });

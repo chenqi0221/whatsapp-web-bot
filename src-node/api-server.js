@@ -15,6 +15,7 @@ const { createGroupRoutes } = require('./routes/groups');
 const { createChatManageRoutes } = require('./routes/chatmanage');
 const { createMediaRoutes } = require('./routes/media');
 const { createExtrasRoutes } = require('./routes/extras');
+const { createImportedContactsRoutes } = require('./routes/imported-contacts');
 const { getClientRef, getClientState } = require('./services/client-manager');
 const { logout, initClient } = require('./services/client-manager');
 
@@ -74,6 +75,9 @@ async function startApiServer(port) {
     const clientRef = getClientRef();
     const clientState = getClientState();
 
+    // Expose clientRef globally for imported-contacts check-whatsapp endpoint
+    global._whatsappClientRef = clientRef;
+
     createStatusRoutes(app, clientRef, clientState, io, logout, initClient);
     createAccountRoutes(app, clientRef, clientState, logout);
     createContactsRoutes(app, clientRef, clientState);
@@ -84,6 +88,7 @@ async function startApiServer(port) {
     createChatManageRoutes(app, clientRef, clientState);
     createMediaRoutes(app, clientRef, clientState);
     createExtrasRoutes(app, clientRef, clientState);
+    createImportedContactsRoutes(app);
 
     app.use(errorHandler);
 

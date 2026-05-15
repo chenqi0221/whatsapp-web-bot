@@ -1,11 +1,20 @@
 <template>
   <el-container class="main-layout">
-    <el-aside :width="isCollapsed ? '64px' : '220px'" class="sidebar">
+    <el-aside :width="isCollapsed ? '64px' : '220px'" class="sidebar" :class="{ collapsed: isCollapsed }">
       <div class="logo">
-        <div class="logo-icon">
-          <el-icon :size="20"><ChatDotRound /></el-icon>
+        <div class="logo-brand">
+          <div class="logo-icon">
+            <el-icon :size="20"><ChatDotRound /></el-icon>
+          </div>
+          <span class="logo-text" :class="{ collapsed: isCollapsed }">WhatsApp Bot</span>
         </div>
-        <span v-show="!isCollapsed" class="logo-text">WhatsApp Bot</span>
+        <button
+          class="collapse-btn"
+          @click="toggleCollapse"
+          :title="isCollapsed ? '展开侧边栏' : '收起侧边栏'"
+        >
+          {{ '←' }}
+        </button>
       </div>
       <el-menu
         :default-active="$route.path"
@@ -75,6 +84,10 @@
             <el-icon><ZoomIn /></el-icon>
             <template #title>联系人查询</template>
           </el-menu-item>
+          <el-menu-item index="/imported-contacts">
+            <el-icon><Upload /></el-icon>
+            <template #title>导入联系人</template>
+          </el-menu-item>
         </el-sub-menu>
 
         <el-sub-menu index="3">
@@ -103,21 +116,25 @@
           </el-menu-item>
         </el-sub-menu>
       </el-menu>
+      <div class="sidebar-footer">
+        <button
+          class="theme-toggle-btn"
+          @click="themeStore.toggleMode()"
+          :title="themeStore.isDark ? '切换到浅色模式' : '切换到深色模式'"
+        >
+          <el-icon :size="16"><Sunny v-if="themeStore.isDark" /><Moon v-else /></el-icon>
+          <span v-show="!isCollapsed" class="theme-toggle-text">
+            {{ themeStore.isDark ? '浅色模式' : '深色模式' }}
+          </span>
+        </button>
+      </div>
     </el-aside>
     <el-container class="right-container">
       <el-header class="header">
-        <div class="header-left">
-          <el-button
-            class="collapse-btn"
-            :icon="isCollapsed ? Expand : Fold"
-            text
-            @click="toggleCollapse"
-          />
-        </div>
         <div class="header-right">
           <el-dropdown trigger="click" @command="handleThemeChange">
             <span class="theme-trigger">
-              <el-icon><Brush /></el-icon>
+              <span class="theme-dot" :class="'dot-' + themeStore.currentTheme"></span>
               <span class="theme-label">{{ themeStore.themeLabel }}</span>
               <el-icon class="arrow"><ArrowDown /></el-icon>
             </span>
@@ -127,11 +144,11 @@
                   v-for="opt in themeStore.themeOptions"
                   :key="opt.value"
                   :command="opt.value"
-                  :class="{ 'is-active': themeStore.current === opt.value }"
+                  :class="{ 'is-active': themeStore.currentTheme === opt.value }"
                 >
                   <span class="theme-dot" :class="'dot-' + opt.value"></span>
                   {{ opt.label }}
-                  <el-icon v-if="themeStore.current === opt.value" class="check"><Check /></el-icon>
+                  <el-icon v-if="themeStore.currentTheme === opt.value" class="check"><Check /></el-icon>
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -163,9 +180,11 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import {
   Fold,
   Expand,
-  Brush,
+  Moon,
+  Sunny,
   ArrowDown,
-  Check
+  Check,
+  Upload
 } from '@element-plus/icons-vue'
 import { useWhatsAppStore } from '@/stores/whatsapp'
 import { useThemeStore } from '@/stores/theme'
@@ -209,26 +228,37 @@ onUnmounted(() => {
 }
 
 .sidebar {
-  background: linear-gradient(180deg, var(--sidebar-bg) 0%, var(--sidebar-bg-end) 100%);
-  color: #fff;
+  background: var(--sidebar-bg) !important;
+  color: var(--sidebar-text);
   overflow: hidden;
   transition: width var(--transition-duration) ease;
   display: flex;
   flex-direction: column;
-  box-shadow: 2px 0 24px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
   z-index: 10;
+}
+
+.sidebar:deep(.el-aside) {
+  background: var(--sidebar-bg) !important;
 }
 
 .logo {
   padding: 16px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
   height: var(--header-height);
   border-bottom: 1px solid var(--sidebar-divider);
   flex-shrink: 0;
   overflow: hidden;
-  white-space: nowrap;
+}
+
+.logo-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .logo-icon {
@@ -249,6 +279,23 @@ onUnmounted(() => {
   font-weight: 700;
   color: var(--sidebar-text-active);
   letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 0.2s ease, width 0.2s ease;
+}
+
+.sidebar.collapsed .logo-text {
+  opacity: 0;
+  width: 0;
+}
+
+.sidebar.collapsed .logo {
+  justify-content: center;
+  padding: 16px 0;
+}
+
+.sidebar.collapsed .logo-brand {
+  display: none;
 }
 
 .sidebar-menu {
@@ -261,26 +308,60 @@ onUnmounted(() => {
 .sidebar-menu:deep(.el-menu) {
   background: transparent;
   border-right: none;
+  --el-menu-text-color: var(--sidebar-text);
+  --el-menu-hover-text-color: var(--sidebar-text-active);
+  --el-menu-active-color: var(--sidebar-text-active);
+  --el-menu-bg-color: transparent;
+  --el-menu-hover-bg-color: var(--sidebar-hover);
 }
 
 .sidebar-menu:deep(.el-menu-item),
 .sidebar-menu:deep(.el-sub-menu__title) {
-  color: var(--sidebar-text);
+  color: var(--sidebar-text) !important;
   transition: all 0.2s ease;
   margin: 2px 8px;
   border-radius: var(--radius-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 左侧亮条伪元素 */
+.sidebar-menu:deep(.el-menu-item)::before,
+.sidebar-menu:deep(.el-sub-menu__title)::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) scaleY(0);
+  width: 3px;
+  height: 60%;
+  background: linear-gradient(180deg, var(--accent), transparent);
+  border-radius: 0 2px 2px 0;
+  transition: transform 0.25s ease;
 }
 
 .sidebar-menu:deep(.el-menu-item:hover),
 .sidebar-menu:deep(.el-sub-menu__title:hover) {
   background: var(--sidebar-hover);
-  color: var(--sidebar-text-active);
+  color: var(--sidebar-text-active) !important;
 }
 
 .sidebar-menu:deep(.el-menu-item.is-active) {
   background: var(--sidebar-active);
-  color: var(--sidebar-text-active);
+  color: var(--sidebar-text-active) !important;
   border-radius: var(--radius-sm);
+}
+
+.sidebar-menu:deep(.el-menu-item.is-active)::before {
+  transform: translateY(-50%) scaleY(1);
+}
+
+.sidebar-menu:deep(.el-sub-menu.is-active .el-sub-menu__title) {
+  color: var(--sidebar-text-active) !important;
+}
+
+.sidebar-menu:deep(.el-sub-menu.is-active .el-sub-menu__title)::before {
+  transform: translateY(-50%) scaleY(1);
 }
 
 .sidebar-menu:deep(.el-menu--collapse) {
@@ -291,9 +372,67 @@ onUnmounted(() => {
   padding-right: 0;
 }
 
+.sidebar-footer {
+  padding: 0.75rem;
+  border-top: 1px solid var(--sidebar-divider);
+  flex-shrink: 0;
+}
+
+.theme-toggle-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--bg-secondary);
+  color: var(--sidebar-text);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.theme-toggle-btn:hover {
+  border-color: var(--border-active);
+  background: var(--sidebar-active);
+  color: var(--sidebar-text-active);
+}
+
+.theme-toggle-text {
+  font-weight: 500;
+}
+
 .right-container {
   flex-direction: column;
   min-width: 0;
+}
+
+.collapse-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--sidebar-text);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease, transform 0.3s ease;
+  flex-shrink: 0;
+}
+
+.collapse-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-faint);
+  color: var(--accent);
+}
+
+.sidebar.collapsed .collapse-btn {
+  transform: rotate(180deg);
 }
 
 .header {
@@ -303,27 +442,11 @@ onUnmounted(() => {
   border-bottom: 1px solid var(--header-border);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 0 20px;
   height: var(--header-height);
   flex-shrink: 0;
   z-index: 5;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.collapse-btn {
-  font-size: 20px;
-  color: var(--text-secondary);
-  transition: color 0.2s;
-}
-
-.collapse-btn:hover {
-  color: var(--accent);
 }
 
 .header-right {

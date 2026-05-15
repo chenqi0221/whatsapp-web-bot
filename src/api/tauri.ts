@@ -276,6 +276,10 @@ export const contactsApi = {
         if (isTauriEnv) return tauriInvoke('get_chats')
         return apiGet('/api/chats')
     },
+    async getUnchatted() {
+        if (isTauriEnv) return tauriInvoke('get_unchatted_contacts')
+        return apiGet('/api/contacts/unchatted')
+    },
     async exportContacts() {
         if (isTauriEnv) return tauriInvoke('export_contacts')
         await exportContacts()
@@ -334,5 +338,37 @@ export const chatApi = {
     async send(to: string, message: string) {
         if (isTauriEnv) return tauriInvoke('send_message_direct', { to, message })
         return apiPost('/api/send', { to, message })
+    },
+}
+
+export interface ImportedContact {
+    id: string
+    name: string
+    phone: string
+    rawName: string
+    source: string
+}
+
+export const importedContactsApi = {
+    async scanCsv() {
+        return apiGet('/api/imported-contacts/scan-csv')
+    },
+    async previewCsv(filePath: string) {
+        return apiPost('/api/imported-contacts/preview-csv', { filePath })
+    },
+    async importCsv(filePath: string, sessionId?: string) {
+        return apiPost('/api/imported-contacts/import', { filePath, sessionId })
+    },
+    async importContent(content: string, fileName?: string, sessionId?: string) {
+        return apiPost('/api/imported-contacts/import-content', { content, fileName, sessionId })
+    },
+    async getImported(sessionId?: string) {
+        return apiGet(`/api/imported-contacts?sessionId=${sessionId || 'default'}`)
+    },
+    async clearImported(sessionId?: string) {
+        return apiPost('/api/imported-contacts/clear', { sessionId })
+    },
+    async checkWhatsApp(phone: string) {
+        return apiPost('/api/imported-contacts/check-whatsapp', { phone })
     },
 }

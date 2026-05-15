@@ -15,6 +15,7 @@ import ContactLookup from '@/views/ContactLookup.vue'
 import Stats from '@/views/Stats.vue'
 import Settings from '@/views/Settings.vue'
 import AccountManage from '@/views/AccountManage.vue'
+import ImportedContacts from '@/views/ImportedContacts.vue'
 
 const routes = [
     {
@@ -34,6 +35,7 @@ const routes = [
             { path: 'search', name: 'Search', component: Search },
             { path: 'profile', name: 'Profile', component: Profile },
             { path: 'contact-lookup', name: 'ContactLookup', component: ContactLookup },
+            { path: 'imported-contacts', name: 'ImportedContacts', component: ImportedContacts },
             { path: 'stats', name: 'Stats', component: Stats },
             { path: 'settings', name: 'Settings', component: Settings },
         ]

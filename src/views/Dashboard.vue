@@ -695,6 +695,8 @@ async function handleCreateAccount() {
             ElMessage.success('新账号已创建，请扫码登录')
             selectedAccountId.value = res.clientId || ''
             loadAccounts()
+            // 启动快速轮询以实时获取认证状态
+            startFastPolling()
         } else {
             ElMessage.error((res && res.error) || '创建失败')
         }
@@ -719,7 +721,9 @@ async function handleConnect() {
             forceNew: false,
         })
         if (res && res.success) {
-            ElMessage.success('正在连接，请扫码')
+            ElMessage.success('正在连接，请等待')
+            // 启动快速轮询以实时获取认证状态
+            startFastPolling()
         } else {
             ElMessage.error((res && res.error) || '连接失败')
         }
@@ -741,6 +745,7 @@ async function handleDisconnect() {
         profile.status = 'disconnected'
         profile.connectedAt = null
         selectedAccountId.value = ''
+        stopFastPolling()
         ElMessage.success('已断开连接')
     } catch (e: any) {
         ElMessage.error('断开失败: ' + (e.message || ''))
@@ -835,8 +840,11 @@ async function refreshAll() {
     }
 }
 
+let fastPollTimer: ReturnType<typeof setInterval> | null = null
+
 function startPolling() {
     stopPolling()
+    // 正常轮询：每5秒
     pollTimer = setInterval(async () => {
         if (profile.status === 'ready') {
             loadBroadcastStatus()
@@ -845,6 +853,25 @@ function startPolling() {
         loadAutoreplyStatus()
         loadScheduleTasks()
     }, 5000)
+}
+
+function startFastPolling() {
+    stopFastPolling()
+    // 快速轮询：连接期间每1秒检查状态
+    fastPollTimer = setInterval(async () => {
+        await loadProfile()
+        // 一旦达到 ready 或失败状态，停止快速轮询
+        if (profile.status === 'ready' || profile.status === 'auth_failure') {
+            stopFastPolling()
+        }
+    }, 1000)
+}
+
+function stopFastPolling() {
+    if (fastPollTimer) {
+        clearInterval(fastPollTimer)
+        fastPollTimer = null
+    }
 }
 
 function stopPolling() {
@@ -861,6 +888,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
     stopPolling()
+    stopFastPolling()
 })
 </script>
 
@@ -881,7 +909,7 @@ onUnmounted(() => {
 .page-title {
     font-size: 22px;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--text-primary);
     margin: 0;
 }
 
@@ -899,10 +927,11 @@ onUnmounted(() => {
 }
 
 .profile-card {
-    background: #fff;
+    background: var(--card-bg);
     border-radius: 16px;
     padding: 24px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--card-border);
 }
 
 .profile-header {
@@ -923,7 +952,7 @@ onUnmounted(() => {
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    border: 3px solid #fff;
+    border: 3px solid var(--card-bg);
 }
 
 .status-dot.online { background: #67c23a; }
@@ -940,7 +969,7 @@ onUnmounted(() => {
 .profile-name {
     font-size: 20px;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--text-primary);
     margin: 0 0 6px 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -949,7 +978,7 @@ onUnmounted(() => {
 
 .profile-phone {
     font-size: 14px;
-    color: #606266;
+    color: var(--text-secondary);
     margin: 0 0 10px 0;
     display: flex;
     align-items: center;
@@ -965,8 +994,8 @@ onUnmounted(() => {
 
 .connected-time { font-size: 13px; color: #909399; }
 
-.profile-level { font-size: 13px; color: #606266; margin: 0; }
-.profile-level strong { color: #409eff; }
+.profile-level { font-size: 13px; color: var(--text-secondary); margin: 0; }
+.profile-level strong { color: var(--accent); }
 
 .profile-account-row {
     display: flex;
@@ -974,7 +1003,7 @@ onUnmounted(() => {
     align-items: center;
     margin-top: 18px;
     padding-top: 16px;
-    border-top: 1px solid #f0f0f0;
+    border-top: 1px solid var(--border-default);
 }
 
 .account-select {
@@ -1007,10 +1036,11 @@ onUnmounted(() => {
 }
 
 .stat-card {
-    background: #fff;
+    background: var(--card-bg);
     border-radius: 14px;
     padding: 20px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--card-border);
     display: flex;
     align-items: center;
     gap: 16px;
@@ -1019,7 +1049,7 @@ onUnmounted(() => {
 
 .stat-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-lg);
 }
 
 .stat-icon {
@@ -1043,7 +1073,7 @@ onUnmounted(() => {
 .stat-value {
     font-size: 26px;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--text-primary);
     line-height: 1.2;
 }
 
@@ -1061,16 +1091,17 @@ onUnmounted(() => {
 }
 
 .feature-card {
-    background: #fff;
+    background: var(--card-bg);
     border-radius: 16px;
     padding: 20px 24px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--card-border);
     display: flex;
     flex-direction: column;
     transition: box-shadow 0.2s;
 }
 
-.feature-card:hover { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1); }
+.feature-card:hover { box-shadow: var(--shadow-lg); }
 
 .feature-card-header {
     display: flex;
@@ -1105,7 +1136,7 @@ onUnmounted(() => {
 .feature-title-group h4 {
     font-size: 16px;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--text-primary);
     margin: 0;
 }
 
@@ -1123,7 +1154,7 @@ onUnmounted(() => {
 .card-progress { margin-bottom: 8px; }
 .card-progress-text {
     font-size: 12px;
-    color: #606266;
+    color: var(--text-secondary);
     margin: 4px 0 0 0;
     text-align: right;
 }
@@ -1135,14 +1166,14 @@ onUnmounted(() => {
     align-items: center;
     justify-content: space-between;
     padding: 6px 0;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--border-default);
 }
 
 .card-stat-row.next-task {
     gap: 6px;
     justify-content: flex-start;
     font-size: 13px;
-    color: #606266;
+    color: var(--text-secondary);
 }
 
 .card-stat-row.empty-hint {
@@ -1150,8 +1181,8 @@ onUnmounted(() => {
     font-size: 13px;
 }
 
-.card-stat-label { font-size: 13px; color: #606266; }
-.card-stat-value { font-size: 14px; font-weight: 600; color: #1a1a2e; }
+.card-stat-label { font-size: 13px; color: var(--text-secondary); }
+.card-stat-value { font-size: 14px; font-weight: 600; color: var(--text-primary); }
 
 .quick-add-form {
     display: flex;
@@ -1168,7 +1199,7 @@ onUnmounted(() => {
     gap: 8px;
     margin-top: 14px;
     padding-top: 14px;
-    border-top: 1px solid #f0f0f0;
+    border-top: 1px solid var(--border-default);
     flex-wrap: wrap;
 }
 </style>

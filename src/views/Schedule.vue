@@ -218,7 +218,30 @@ onMounted(() => {
 
 <style scoped>
 .schedule {
-  padding: 0;
+  padding: 24px 28px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.schedule :deep(.el-card) {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  transition: box-shadow 0.2s ease;
+}
+
+.schedule :deep(.el-card:hover) {
+  box-shadow: var(--shadow-lg);
+}
+
+.schedule :deep(.el-card__header) {
+  border-bottom-color: var(--border-default);
+  padding: 16px 24px;
+}
+
+.schedule :deep(.el-card__body) {
+  padding: 20px 24px;
 }
 
 .card-header {
@@ -235,9 +258,16 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 12px;
-  background: #f5f5f5;
-  border-radius: 8px;
+  padding: 14px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.task-item:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .task-info {
@@ -255,11 +285,11 @@ onMounted(() => {
   align-items: center;
   margin-bottom: 5px;
   font-size: 13px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .task-message {
-  color: #999;
+  color: var(--text-muted);
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;

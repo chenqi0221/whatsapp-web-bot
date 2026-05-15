@@ -67,8 +67,32 @@ onMounted(() => {
 
 <style scoped>
 .stats {
-  padding: 0;
+  padding: 24px 28px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
+
+.stats :deep(.el-card) {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  transition: box-shadow 0.2s ease;
+}
+
+.stats :deep(.el-card:hover) {
+  box-shadow: var(--shadow-lg);
+}
+
+.stats :deep(.el-card__header) {
+  border-bottom-color: var(--border-default);
+  padding: 16px 24px;
+}
+
+.stats :deep(.el-card__body) {
+  padding: 20px 24px;
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -77,18 +101,25 @@ onMounted(() => {
 }
 .stat-item {
   text-align: center;
-  padding: 20px;
-  background: #f5f5f5;
-  border-radius: 8px;
+  padding: 24px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
   margin-bottom: 20px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
 }
 .stat-value {
   font-size: 32px;
   font-weight: bold;
-  color: #409EFF;
+  color: var(--accent);
 }
 .stat-label {
   margin-top: 5px;
-  color: #666;
+  color: var(--text-secondary);
 }
 </style>

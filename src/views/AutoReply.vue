@@ -174,7 +174,30 @@ onMounted(() => {
 
 <style scoped>
 .autoreply {
-  padding: 0;
+  padding: 24px 28px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.autoreply :deep(.el-card) {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  transition: box-shadow 0.2s ease;
+}
+
+.autoreply :deep(.el-card:hover) {
+  box-shadow: var(--shadow-lg);
+}
+
+.autoreply :deep(.el-card__header) {
+  border-bottom-color: var(--border-default);
+  padding: 16px 24px;
+}
+
+.autoreply :deep(.el-card__body) {
+  padding: 20px 24px;
 }
 
 .card-header {
@@ -193,9 +216,16 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px;
-  background: #f5f5f5;
-  border-radius: 8px;
+  padding: 14px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rule-item:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .rule-info {
@@ -207,11 +237,11 @@ onMounted(() => {
 
 .keyword {
   font-weight: bold;
-  color: #409EFF;
+  color: var(--accent);
 }
 
 .reply {
-  color: #666;
+  color: var(--text-secondary);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -79,7 +79,30 @@ const updateAccountLevel = async () => {
 
 <style scoped>
 .settings {
-  padding: 0;
+  padding: 24px 28px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.settings :deep(.el-card) {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  transition: box-shadow 0.2s ease;
+}
+
+.settings :deep(.el-card:hover) {
+  box-shadow: var(--shadow-lg);
+}
+
+.settings :deep(.el-card__header) {
+  border-bottom-color: var(--border-default);
+  padding: 16px 24px;
+}
+
+.settings :deep(.el-card__body) {
+  padding: 20px 24px;
 }
 
 .card-header {
@@ -87,10 +110,12 @@ const updateAccountLevel = async () => {
 }
 
 .level-info {
-  background: #f5f7fa;
-  padding: 15px;
-  border-radius: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  padding: 20px;
+  border-radius: 14px;
   line-height: 1.6;
+  color: var(--text-secondary);
 }
 
 .about {
@@ -103,7 +128,7 @@ const updateAccountLevel = async () => {
 }
 
 .about p {
-  color: #666;
+  color: var(--text-secondary);
   margin: 5px 0;
 }
 </style>

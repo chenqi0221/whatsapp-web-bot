@@ -4,6 +4,7 @@ const {
     runBroadcast,
 } = require('../services/broadcast');
 const { canSend, setAccountLevel } = require('../services/rate-limiter');
+const { getImportedContacts } = require('./imported-contacts');
 const logger = require('../utils/logger');
 
 function createBroadcastRoutes(app, clientRef, clientState, io) {
@@ -88,6 +89,18 @@ function createBroadcastRoutes(app, clientRef, clientState, io) {
                     number: num.replace(/[^0-9]/g, ''),
                     lid: null,
                 }))
+            } else if (targetType === 'imported') {
+                const imported = getImportedContacts('default')
+                if (!imported || imported.length === 0) {
+                    return res.json({ success: false, error: '尚未导入联系人，请先点击「导入联系人」按钮导入 CSV 文件' })
+                }
+                targetItems = imported.map((c) => ({
+                    id: c.phone.includes('@') ? c.phone : c.phone + '@c.us',
+                    name: c.name || c.phone,
+                    number: c.phone.replace(/[^0-9]/g, ''),
+                    lid: null,
+                }))
+                logger.info(`Broadcast imported: ${targetItems.length} contacts`)
             } else if (targetType === 'contacts' || targetType === 'nohistory') {
                 const contactsData = await clientRef.client.pupPage.evaluate(async () => {
                     let contacts = []

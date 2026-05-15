@@ -342,22 +342,24 @@ onMounted(() => {
 
 <style scoped>
 .account-manage {
-    padding: 24px;
+    padding: 24px 28px;
     height: 100%;
     overflow-y: auto;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 .page-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
 }
 
 .page-header h1 {
     font-size: 22px;
-    font-weight: 600;
-    color: #1a1a2e;
+    font-weight: 700;
+    color: var(--text-primary);
 }
 
 .header-actions {
@@ -372,7 +374,9 @@ onMounted(() => {
 
 .search-box input {
     padding: 6px 32px 6px 12px;
-    border: 1px solid #d0d0d0;
+    border: 1px solid var(--border-default);
+    background: var(--bg-primary);
+    color: var(--text-primary);
     border-radius: 6px;
     width: 220px;
     font-size: 13px;
@@ -390,9 +394,16 @@ onMounted(() => {
     display: flex;
     gap: 20px;
     margin-bottom: 20px;
-    background: #f8f9fa;
-    border-radius: 10px;
-    padding: 14px 20px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 16px 24px;
+    box-shadow: var(--shadow-md);
+    transition: box-shadow 0.2s ease;
+}
+
+.stats-bar:hover {
+    box-shadow: var(--shadow-lg);
 }
 
 .stat-item {
@@ -403,7 +414,7 @@ onMounted(() => {
 .stat-value {
     font-size: 22px;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--text-primary);
 }
 
 .stat-value.online {
@@ -412,7 +423,7 @@ onMounted(() => {
 
 .stat-label {
     font-size: 12px;
-    color: #888;
+    color: var(--text-muted);
 }
 
 .loading-overlay {
@@ -435,8 +446,8 @@ onMounted(() => {
 }
 
 .error-banner {
-    background: #fef2f2;
-    color: #dc2626;
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
     padding: 10px 16px;
     border-radius: 8px;
     margin-bottom: 16px;
@@ -447,8 +458,8 @@ onMounted(() => {
 }
 
 .batch-bar {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
+    background: var(--accent-faint);
+    border: 1px solid var(--border-active);
     border-radius: 8px;
     padding: 10px 16px;
     margin-bottom: 14px;
@@ -456,12 +467,13 @@ onMounted(() => {
     align-items: center;
     gap: 12px;
     font-size: 13px;
+    color: var(--text-primary);
 }
 
 .empty-state {
     text-align: center;
     padding: 60px;
-    color: #999;
+    color: var(--text-muted);
     font-size: 15px;
 }
 
@@ -472,16 +484,22 @@ onMounted(() => {
 }
 
 .account-card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
     overflow: hidden;
-    transition: border-color 0.15s;
+    box-shadow: var(--shadow-md);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.15s;
+}
+
+.account-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
 }
 
 .account-card.selected {
-    border-color: #6366f1;
-    background: #f5f3ff;
+    border-color: var(--accent);
+    background: var(--accent-faint);
 }
 
 .account-main {
@@ -496,7 +514,7 @@ onMounted(() => {
     cursor: pointer;
     font-size: 18px;
     user-select: none;
-    color: #888;
+    color: var(--text-muted);
     width: 24px;
     text-align: center;
 }
@@ -541,10 +559,10 @@ onMounted(() => {
     font-weight: 500;
 }
 
-.status-badge.offline { background: #f3f4f6; color: #6b7280; }
-.status-badge.ready { background: #d1fae5; color: #059669; }
-.status-badge.qr { background: #fef3c7; color: #d97706; }
-.status-badge.error { background: #fee2e2; color: #dc2626; }
+.status-badge.offline { background: var(--bg-tertiary); color: var(--text-muted); }
+.status-badge.ready { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+.status-badge.qr { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+.status-badge.error { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
 
 .level-badge {
     font-size: 10px;
@@ -552,13 +570,13 @@ onMounted(() => {
     border-radius: 8px;
 }
 
-.level-badge.NEW_ACCOUNT { background: #fef3c7; color: #92400e; }
-.level-badge.ESTABLISHED_ACCOUNT { background: #dbeafe; color: #1d4ed8; }
-.level-badge.MATURE_ACCOUNT { background: #d1fae5; color: #065f46; }
+.level-badge.NEW_ACCOUNT { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+.level-badge.ESTABLISHED_ACCOUNT { background: var(--accent-faint); color: var(--accent); }
+.level-badge.MATURE_ACCOUNT { background: rgba(16, 185, 129, 0.15); color: var(--success); }
 
 .account-meta {
     font-size: 12px;
-    color: #888;
+    color: var(--text-muted);
     display: flex;
     gap: 14px;
 }
@@ -569,9 +587,9 @@ onMounted(() => {
 }
 
 .account-detail {
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--border-default);
     padding: 16px 20px;
-    background: #fafbfc;
+    background: var(--bg-secondary);
 }
 
 .detail-grid {
@@ -588,7 +606,7 @@ onMounted(() => {
 
 .detail-item label {
     font-size: 11px;
-    color: #999;
+    color: var(--text-muted);
 }
 
 .detail-item span {
@@ -609,7 +627,7 @@ onMounted(() => {
     font-size: 13px;
     font-weight: 600;
     margin-bottom: 8px;
-    color: #555;
+    color: var(--text-secondary);
 }
 
 .history-list {
@@ -628,24 +646,24 @@ onMounted(() => {
 }
 
 .history-action {
-    color: #6366f1;
+    color: var(--accent);
     font-weight: 500;
     min-width: 50px;
 }
 
 .history-detail {
-    color: #666;
+    color: var(--text-secondary);
     flex: 1;
 }
 
 .history-time {
-    color: #aaa;
+    color: var(--text-muted);
     white-space: nowrap;
 }
 
 .progress-bar {
     height: 22px;
-    background: #e5e7eb;
+    background: var(--bg-tertiary);
     border-radius: 6px;
     overflow: hidden;
     position: relative;
@@ -669,7 +687,7 @@ onMounted(() => {
     transform: translate(-50%, -50%);
     font-size: 12px;
     font-weight: 600;
-    color: #374151;
+    color: var(--text-primary);
 }
 
 .dialog-overlay {
@@ -683,12 +701,13 @@ onMounted(() => {
 }
 
 .dialog {
-    background: #fff;
-    border-radius: 12px;
+    background: var(--card-bg);
+    border-radius: 16px;
     padding: 24px;
     width: 420px;
     max-width: 90vw;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--card-border);
 }
 
 .dialog-sm {
@@ -702,7 +721,7 @@ onMounted(() => {
 }
 
 .dialog p {
-    color: #666;
+    color: var(--text-secondary);
     margin-bottom: 16px;
     font-size: 14px;
 }
@@ -715,7 +734,7 @@ onMounted(() => {
     display: block;
     font-size: 13px;
     font-weight: 500;
-    color: #555;
+    color: var(--text-secondary);
     margin-bottom: 5px;
 }
 
@@ -723,7 +742,9 @@ onMounted(() => {
 .form-group select {
     width: 100%;
     padding: 8px 12px;
-    border: 1px solid #d0d0d0;
+    border: 1px solid var(--border-default);
+    background: var(--bg-primary);
+    color: var(--text-primary);
     border-radius: 6px;
     font-size: 14px;
     box-sizing: border-box;
@@ -739,8 +760,8 @@ onMounted(() => {
 .btn {
     padding: 7px 16px;
     border-radius: 6px;
-    border: 1px solid #d0d0d0;
-    background: #fff;
+    border: 1px solid var(--border-default);
+    background: var(--card-bg);
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;
@@ -748,7 +769,7 @@ onMounted(() => {
 
 .btn-primary { background: #6366f1; color: #fff; border-color: #6366f1; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-secondary { background: #f3f4f6; }
-.btn-danger { background: #fee2e2; color: #dc2626; border-color: #fecaca; }
+.btn-secondary { background: var(--bg-secondary); color: var(--text-primary); }
+.btn-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); border-color: rgba(239, 68, 68, 0.3); }
 .btn-sm { padding: 4px 10px; font-size: 12px; }
 </style>

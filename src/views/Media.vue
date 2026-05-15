@@ -291,8 +291,32 @@ onMounted(() => {
 
 <style scoped>
 .media {
-  padding: 0;
+  padding: 24px 28px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
+
+.media :deep(.el-card) {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  transition: box-shadow 0.2s ease;
+}
+
+.media :deep(.el-card:hover) {
+  box-shadow: var(--shadow-lg);
+}
+
+.media :deep(.el-card__header) {
+  border-bottom-color: var(--border-default);
+  padding: 16px 24px;
+}
+
+.media :deep(.el-card__body) {
+  padding: 20px 24px;
+}
+
 .card-header {
   font-weight: bold;
 }

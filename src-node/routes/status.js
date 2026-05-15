@@ -36,19 +36,29 @@ function createStatusRoutes(
             dailyStats: getDailyStats(),
         };
 
-        if (clientRef.client && clientState.status === 'ready' && clientRef.client.info) {
-            const info = clientRef.client.info;
-            profile.name = info.pushname || null;
-            if (info.wid) {
-                profile.number = info.wid.user || null;
+        // 如果状态是 ready，尝试获取 profile 信息（即使 client.info 可能还没准备好）
+        if (clientRef.client && clientState.status === 'ready') {
+            // 如果 info 还没加载，等待一下
+            let infoRetries = 0;
+            while (!clientRef.client.info && infoRetries < 5) {
+                await new Promise(r => setTimeout(r, 300));
+                infoRetries++;
             }
 
-            try {
-                profile.avatarUrl = await clientRef.client.getProfilePicUrl(
-                    info.wid?._serialized || clientRef.client.info.me?._serialized
-                );
-            } catch (e) {
-                logger.info('Failed to get profile pic:', { data: e.message });
+            if (clientRef.client.info) {
+                const info = clientRef.client.info;
+                profile.name = info.pushname || null;
+                if (info.wid) {
+                    profile.number = info.wid.user || null;
+                }
+
+                try {
+                    profile.avatarUrl = await clientRef.client.getProfilePicUrl(
+                        info.wid?._serialized || clientRef.client.info.me?._serialized
+                    );
+                } catch (e) {
+                    logger.info('Failed to get profile pic:', { data: e.message });
+                }
             }
         }
 
