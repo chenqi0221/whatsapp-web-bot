@@ -12,7 +12,7 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
 
     const connect = async (forceNew = false, clientId?: string) => {
         try {
-            const result: any = await whatsappApi.connect(forceNew, clientId)
+            const result: any = await whatsappApi.connect({ forceNew, clientId })
             if (result.success) {
                 startPolling()
             }

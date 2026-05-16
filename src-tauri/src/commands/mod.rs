@@ -2,3 +2,8 @@ pub mod whatsapp;
 pub mod contacts;
 pub mod broadcast;
 pub mod system;
+pub mod backend;
+pub mod proxy;
+pub mod autoreply;
+pub mod schedule;
+pub mod chat;

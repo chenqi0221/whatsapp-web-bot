@@ -1,57 +1,39 @@
 {
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "WhatsApp Bot",
+  "version": "3.0.0",
+  "identifier": "com.whatsappbot.app",
   "build": {
-    "beforeBuildCommand": "vite build",
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
     "beforeDevCommand": "npm run dev",
-    "devPath": "http://localhost:1420",
-    "distDir": "../dist"
+    "beforeBuildCommand": "npx vite build"
   },
-  "tauri": {
-    "allowlist": {
-      "all": false,
-      "shell": {
-        "all": false,
-        "open": true
-      },
-      "http": {
-        "all": true,
-        "request": true
-      },
-      "process": {
-        "all": true
-      },
-      "dialog": {
-        "all": false,
-        "open": true
-      }
-    },
+  "app": {
     "windows": [
       {
         "title": "WhatsApp Bot",
         "width": 1400,
         "height": 900,
+        "minWidth": 800,
+        "minHeight": 600,
         "resizable": true,
         "fullscreen": false,
         "center": true,
-        "minWidth": 800,
-        "minHeight": 600
+        "devtools": true
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' http://localhost:*; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
-    },
-    "bundle": {
-      "active": true,
-      "targets": "all",
-      "identifier": "com.whatsappbot.app",
-      "icon": [
-        "icons/icon.png",
-        "icons/icon.ico"
-      ],
-      "windows": {
-        "webviewInstallMode": {
-          "type": "downloadBootstrapper"
-        }
-      }
+      "csp": null,
+      "capabilities": ["default"]
     }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.ico"
+    ]
   }
 }

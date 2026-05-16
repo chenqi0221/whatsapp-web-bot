@@ -285,9 +285,11 @@ function createBroadcastRoutes(app, clientRef, clientState, io) {
                     clientId,
                 },
                 io,
-            ).then(() => {
+            ).then((result) => {
+                process._rawDebug(`[BROADCAST DEBUG] runBroadcast RESOLVED: ${JSON.stringify(result)}`)
                 logger.info(`Broadcast completed for client ${clientId}`)
             }).catch((e) => {
+                process._rawDebug(`[BROADCAST DEBUG] runBroadcast REJECTED: ${e?.message} STACK: ${e?.stack}`)
                 logger.error(`Broadcast error for client ${clientId}: ${e?.message || e || 'unknown error'}`)
                 if (e?.stack) {
                     logger.error(`Broadcast stack: ${e.stack}`)

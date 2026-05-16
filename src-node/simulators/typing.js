@@ -36,10 +36,12 @@ async function simulateHumanTyping(page, text, options = {}) {
         await page.keyboard.press('Delete');
         await new Promise((r) => setTimeout(r, 50 + Math.random() * 100));
 
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
+        const chars = [...text];
 
-            if (Math.random() < pauseChance && i > 0 && i < text.length - 1) {
+        for (let i = 0; i < chars.length; i++) {
+            const char = chars[i];
+
+            if (Math.random() < pauseChance && i > 0 && i < chars.length - 1) {
                 const pauseTime =
                     pauseMin + Math.random() * (pauseMax - pauseMin);
                 await new Promise((r) => setTimeout(r, pauseTime));

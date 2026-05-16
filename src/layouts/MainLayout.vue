@@ -154,6 +154,19 @@
             </template>
           </el-dropdown>
           <el-divider direction="vertical" />
+          <div class="backend-status" :class="{ dead: backendDead }" @click="backendDead && handleRestartBackend()" :title="backendDead ? '点击重启后端服务' : '后端服务运行正常'">
+            <span class="status-dot" :class="{ alive: !backendDead, dead: backendDead }"></span>
+            <span class="status-text">{{ backendDead ? '后端已停止' : '后端正常' }}</span>
+            <button
+              v-if="backendDead"
+              class="restart-btn"
+              @click.stop="handleRestartBackend"
+            >
+              <el-icon :size="14"><Refresh /></el-icon>
+              重启
+            </button>
+          </div>
+          <el-divider direction="vertical" />
           <el-tag
             :type="connectionStatus.type"
             effect="plain"
@@ -184,15 +197,19 @@ import {
   Sunny,
   ArrowDown,
   Check,
-  Upload
+  Upload,
+  Refresh,
 } from '@element-plus/icons-vue'
 import { useWhatsAppStore } from '@/stores/whatsapp'
 import { useThemeStore } from '@/stores/theme'
+import { backendApi } from '@/api/tauri'
 
 const store = useWhatsAppStore()
 const themeStore = useThemeStore()
 
 const isCollapsed = ref(false)
+const backendDead = ref(false)
+let healthTimer: ReturnType<typeof setInterval> | null = null
 
 function toggleCollapse() {
   isCollapsed.value = !isCollapsed.value
@@ -200,6 +217,26 @@ function toggleCollapse() {
 
 function handleThemeChange(name: string) {
   themeStore.setTheme(name as any)
+}
+
+async function checkBackendHealth() {
+  try {
+    const result = await backendApi.checkHealth()
+    console.log('[HealthCheck] result:', result)
+    backendDead.value = result === 'dead'
+  } catch (e) {
+    console.error('[HealthCheck] error:', e)
+    backendDead.value = true
+  }
+}
+
+async function handleRestartBackend() {
+  backendDead.value = true
+  await backendApi.restart()
+  // Wait and check again
+  setTimeout(async () => {
+    await checkBackendHealth()
+  }, 3000)
 }
 
 const connectionStatus = computed(() => {
@@ -214,10 +251,16 @@ const connectionStatus = computed(() => {
 
 onMounted(() => {
   store.startPolling()
+  checkBackendHealth()
+  healthTimer = setInterval(checkBackendHealth, 5000)
 })
 
 onUnmounted(() => {
   store.stopPolling()
+  if (healthTimer) {
+    clearInterval(healthTimer)
+    healthTimer = null
+  }
 })
 </script>
 
@@ -480,6 +523,79 @@ onUnmounted(() => {
 .arrow {
   font-size: 12px;
   transition: transform 0.2s;
+}
+
+.backend-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.backend-status.dead {
+  cursor: pointer;
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+}
+
+.backend-status.dead:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: all 0.3s;
+}
+
+.status-dot.alive {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
+}
+
+.status-dot.dead {
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
+  animation: pulse-dead 2s infinite;
+}
+
+@keyframes pulse-dead {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.status-text {
+  white-space: nowrap;
+}
+
+.restart-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.restart-btn:hover {
+  background: #ef4444;
+  color: #fff;
 }
 
 .theme-dot {

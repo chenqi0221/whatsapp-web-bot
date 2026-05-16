@@ -1,23 +1,52 @@
-const isTauriEnv =
-    typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__
+function checkIsTauriEnv(): boolean {
+    if (typeof window === 'undefined') return false
+    const w = window as any
+    // Tauri v1/v2 都会在 window 上挂载 __TAURI_INTERNALS__
+    if (w.__TAURI_INTERNALS__) return true
+    // 备选检测方式
+    if (w.__TAURI__) return true
+    // 检查是否处于 Tauri WebView 环境
+    if (w.navigator?.userAgent?.includes('Tauri')) return true
+    return false
+}
+
+const isTauriEnv = checkIsTauriEnv()
+console.log('[tauri.ts] isTauriEnv:', isTauriEnv, 'window.__TAURI_INTERNALS__:', !!(window as any).__TAURI_INTERNALS__)
 
 const API_BASE = 'http://127.0.0.1:3003'
 
 async function tauriInvoke(cmd: string, args?: Record<string, unknown>) {
-    const { invoke } = await import('@tauri-apps/api/tauri')
-    const result = (await invoke(cmd, args)) as any
-    if (typeof result === 'string') {
-        return JSON.parse(result)
+    console.log(`[tauriInvoke] Calling command: ${cmd}`, args)
+    try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        const result = (await invoke(cmd, args)) as any
+        console.log(`[tauriInvoke] Command ${cmd} result:`, result)
+        if (typeof result === 'string') {
+            try {
+                return JSON.parse(result)
+            } catch {
+                return result
+            }
+        }
+        return result
+    } catch (error) {
+        console.error(`[tauriInvoke] Command ${cmd} failed:`, error)
+        throw error
     }
-    return result
 }
 
 async function apiGet(path: string) {
+    if (isTauriEnv) {
+        return tauriInvoke('proxy_get', { path })
+    }
     const res = await fetch(`${API_BASE}${path}`)
     return res.json()
 }
 
 async function apiPost(path: string, body?: Record<string, unknown>) {
+    if (isTauriEnv) {
+        return tauriInvoke('proxy_post', { path, body })
+    }
     const res = await fetch(`${API_BASE}${path}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -27,6 +56,9 @@ async function apiPost(path: string, body?: Record<string, unknown>) {
 }
 
 async function apiPut(path: string, body?: Record<string, unknown>) {
+    if (isTauriEnv) {
+        return tauriInvoke('proxy_put', { path, body })
+    }
     const res = await fetch(`${API_BASE}${path}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -36,6 +68,9 @@ async function apiPut(path: string, body?: Record<string, unknown>) {
 }
 
 async function apiDelete(path: string) {
+    if (isTauriEnv) {
+        return tauriInvoke('proxy_delete', { path })
+    }
     const res = await fetch(`${API_BASE}${path}`, { method: 'DELETE' })
     return res.json()
 }
@@ -105,7 +140,7 @@ export async function searchAccounts(query: string): Promise<{ success: boolean;
 
 export async function createAccount(name: string, phone?: string): Promise<{ success: boolean; account: Account; accounts: Account[] }> {
     if (isTauriEnv) return tauriInvoke('create_account', { name, phone: phone || null })
-    return apiPost('/api/accounts', { name, phone: phone || undefined })
+    return apiPost('/api/accounts', { name, phone: phone || null })
 }
 
 export async function renameAccount(id: string, name: string): Promise<{ success: boolean }> {
@@ -167,8 +202,9 @@ export async function disconnect(): Promise<void> {
 }
 
 export async function logout(): Promise<void> {
+    // logout 使用 disconnect 命令（它们都调用 /api/logout）
     if (isTauriEnv) {
-        await tauriInvoke('logout')
+        await tauriInvoke('disconnect')
         return
     }
     await apiPost('/api/logout')
@@ -185,8 +221,8 @@ export async function sendMessage(clientId: string, numbers: string[], message: 
     await apiPost('/api/broadcast', { clientId, manualNumbers: numbers.join(','), message })
 }
 
-export async function getContacts(clientId: string): Promise<any> {
-    if (isTauriEnv) return tauriInvoke('get_contacts', { clientId })
+export async function getContacts(clientId?: string): Promise<any> {
+    if (isTauriEnv) return tauriInvoke('get_contacts')
     return apiGet('/api/contacts-list')
 }
 
@@ -234,7 +270,13 @@ export async function getBroadcastStatus(): Promise<any> {
 export const whatsappApi = {
     async connect(opts: { forceNew?: boolean; clientId?: string; accountName?: string } = {}) {
         if (isTauriEnv) {
-            return tauriInvoke('connect', { clientId: opts.clientId || '' })
+            return tauriInvoke('connect', {
+                request: {
+                    force_new: opts.forceNew || false,
+                    client_id: opts.clientId || null,
+                    account_name: opts.accountName || null,
+                }
+            })
         }
         return apiPost('/api/connect', {
             forceNew: opts.forceNew || false,
@@ -269,7 +311,7 @@ export const systemApi = {
 
 export const contactsApi = {
     async getContacts(clientId?: string) {
-        if (isTauriEnv) return tauriInvoke('get_contacts', { clientId: clientId || '' })
+        if (isTauriEnv) return tauriInvoke('get_contacts')
         return apiGet('/api/contacts-list')
     },
     async getChats() {
@@ -314,7 +356,13 @@ export const autoreplyApi = {
         return apiGet('/api/auto-reply')
     },
     async addRule(data: { keyword: string; reply: string; matchType?: string }) {
-        if (isTauriEnv) return tauriInvoke('add_autoreply_rule', data)
+        if (isTauriEnv) {
+            return tauriInvoke('add_autoreply_rule', {
+                keyword: data.keyword,
+                reply: data.reply,
+                match_type: data.matchType || null,
+            })
+        }
         return apiPost('/api/auto-reply', data)
     },
     async toggle(enabled: boolean) {
@@ -329,7 +377,16 @@ export const scheduleApi = {
         return apiGet('/api/scheduled-tasks')
     },
     async createTask(data: { name: string; type: string; dailyTime?: string; time?: string; message: string; target: string }) {
-        if (isTauriEnv) return tauriInvoke('create_scheduled_task', data)
+        if (isTauriEnv) {
+            return tauriInvoke('create_scheduled_task', {
+                name: data.name,
+                task_type: data.type,
+                daily_time: data.dailyTime || null,
+                time: data.time || null,
+                message: data.message,
+                target: data.target,
+            })
+        }
         return apiPost('/api/scheduled-tasks', data)
     },
 }
@@ -370,5 +427,47 @@ export const importedContactsApi = {
     },
     async checkWhatsApp(phone: string) {
         return apiPost('/api/imported-contacts/check-whatsapp', { phone })
+    },
+}
+
+export const backendApi = {
+    async checkHealth(): Promise<'alive' | 'dead'> {
+        // Tauri 模式下使用 Rust 命令检测（避免 WebView fetch 限制）
+        if (isTauriEnv) {
+            try {
+                const result = await tauriInvoke('check_backend_health')
+                return result === 'alive' ? 'alive' : 'dead'
+            } catch (e) {
+                console.warn('[backendApi] Tauri health check failed:', e)
+                return 'dead'
+            }
+        }
+        // 浏览器开发模式用 fetch
+        try {
+            const controller = new AbortController()
+            const timeout = setTimeout(() => controller.abort(), 2000)
+            const res = await fetch(`${API_BASE}/api/status`, {
+                signal: controller.signal,
+            })
+            clearTimeout(timeout)
+            if (res.ok) {
+                await res.json()
+                return 'alive'
+            }
+            return 'dead'
+        } catch (e) {
+            console.warn('[backendApi] health check failed:', e)
+            return 'dead'
+        }
+    },
+    async restart(): Promise<string> {
+        if (isTauriEnv) {
+            try {
+                return await tauriInvoke('restart_backend') as string
+            } catch (e) {
+                console.warn('Tauri restart failed:', e)
+            }
+        }
+        return 'restarting'
     },
 }

@@ -1,0 +1,52 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capabilities for WhatsApp Bot",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "dialog:allow-open",
+    "dialog:allow-save"
+  ],
+  "commands": {
+    "allow": [
+      "connect",
+      "disconnect",
+      "get_status",
+      "get_chats",
+      "get_contacts",
+      "export_contacts",
+      "get_unchatted_contacts",
+      "get_profile",
+      "send_message_direct",
+      "get_scheduled_tasks",
+      "create_scheduled_task",
+      "get_autoreply_rules",
+      "add_autoreply_rule",
+      "toggle_autoreply",
+      "proxy_get",
+      "proxy_post",
+      "proxy_put",
+      "proxy_delete",
+      "check_backend_health",
+      "restart_backend",
+      "get_sessions",
+      "get_account_detail",
+      "search_accounts",
+      "save_account",
+      "create_account",
+      "rename_account",
+      "update_account",
+      "delete_account",
+      "batch_delete_accounts",
+      "set_account_level",
+      "get_account_stats",
+      "get_account_history",
+      "get_daily_stats",
+      "global_set_account_level",
+      "start_broadcast",
+      "stop_broadcast",
+      "get_broadcast_status"
+    ]
+  }
+}

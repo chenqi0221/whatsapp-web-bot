@@ -1,0 +1,6 @@
+# 便携版大文件 (不在 git 中追踪)
+src-node/node.exe
+src-node/.chromium/
+src-node/.wwebjs_auth_v2/
+src-node/data/
+src-node/logs/

@@ -159,6 +159,36 @@
                     </el-option>
                   </el-select>
                 </el-form-item>
+                <el-form-item v-if="form.targetType === 'chats'">
+                  <div class="target-contacts-info">
+                    <el-tag v-if="targetCounts.chats > 0" type="info" size="small">
+                      已选择 {{ targetCounts.chats }} 位已有聊天记录的联系人
+                    </el-tag>
+                    <el-tag v-else type="warning" size="small">
+                      暂无已有聊天记录的联系人
+                    </el-tag>
+                  </div>
+                </el-form-item>
+                <el-form-item v-if="form.targetType === 'contacts'">
+                  <div class="target-contacts-info">
+                    <el-tag v-if="targetCounts.contacts > 0" type="info" size="small">
+                      已选择 {{ targetCounts.contacts }} 位联系人
+                    </el-tag>
+                    <el-tag v-else type="warning" size="small">
+                      暂无联系人
+                    </el-tag>
+                  </div>
+                </el-form-item>
+                <el-form-item v-if="form.targetType === 'nohistory'">
+                  <div class="target-contacts-info">
+                    <el-tag v-if="targetCounts.nohistory > 0" type="info" size="small">
+                      已选择 {{ targetCounts.nohistory }} 位未聊天联系人
+                    </el-tag>
+                    <el-tag v-else type="warning" size="small">
+                      暂无未聊天联系人
+                    </el-tag>
+                  </div>
+                </el-form-item>
                 <el-form-item v-if="form.targetType === 'imported'">
                   <div class="imported-contacts-info">
                     <el-tag v-if="importedContacts.length > 0" type="info" size="small">
@@ -273,7 +303,7 @@
             </div>
             <div class="quick-stat-item">
               <span class="quick-stat-label">今日发送</span>
-              <span class="quick-stat-value">{{ progress.daily_sent }} / {{ progress.daily_limit }}</span>
+              <span class="quick-stat-value">{{ progress.dailySent }} / {{ progress.dailyLimit }}</span>
             </div>
             <div class="quick-stat-item">
               <span class="quick-stat-label">剩余配额</span>
@@ -305,7 +335,7 @@
               </div>
               <div class="progress-info-row">
                 <span class="progress-info-label">今日发送</span>
-                <span class="progress-info-value">{{ progress.daily_sent }} / {{ progress.daily_limit }}</span>
+                <span class="progress-info-value">{{ progress.dailySent }} / {{ progress.dailyLimit }}</span>
               </div>
               <div class="progress-info-row">
                 <span class="progress-info-label">剩余配额</span>
@@ -457,7 +487,7 @@ const form = ref({
     randomInterval: true,
     randomizeMsg: true,
     lengthRandomize: true,
-    simulateTyping: true,
+    simulateTyping: false,
     simulateMouse: false,
     respectHours: true,
     randomPause: true,
@@ -680,7 +710,7 @@ function applyFormData(data: BroadcastTemplate['formData']) {
         randomInterval: data.randomInterval ?? true,
         randomizeMsg: data.randomizeMsg ?? true,
         lengthRandomize: data.lengthRandomize ?? true,
-        simulateTyping: data.simulateTyping ?? true,
+        simulateTyping: data.simulateTyping ?? false,
         simulateMouse: data.simulateMouse ?? false,
         respectHours: data.respectHours ?? true,
         randomPause: data.randomPause ?? true,
@@ -896,7 +926,7 @@ function handleImportTemplate(event: Event) {
                 randomInterval: data.randomInterval ?? true,
                 randomizeMsg: data.randomizeMsg ?? true,
                 lengthRandomize: data.lengthRandomize ?? true,
-                simulateTyping: data.simulateTyping ?? true,
+                simulateTyping: data.simulateTyping ?? false,
                 simulateMouse: data.simulateMouse ?? false,
                 respectHours: data.respectHours ?? true,
                 randomPause: data.randomPause ?? true,
@@ -973,7 +1003,9 @@ function startBroadcast() {
         isRunning.value = false
         broadcastStarted.value = false
         stopPolling()
-        ElMessage.error('启动失败: ' + e.message)
+        const errorMsg = e?.message || e?.error || (typeof e === 'string' ? e : JSON.stringify(e))
+        ElMessage.error('启动失败: ' + errorMsg)
+        console.error('Broadcast start error:', e)
     })
 }
 
@@ -1171,24 +1203,27 @@ onDeactivated(() => {
 }
 
 .control-btn {
-    width: 100%;
-    height: 48px;
-    font-size: 16px;
-    border-radius: 12px;
+	width: 100% !important;
+	height: 48px;
+	font-size: 16px;
+	border-radius: 12px;
+	margin-left: 0 !important;
+	margin-right: 0 !important;
 }
 
 .control-btn .el-icon {
-    margin-right: 8px;
-    font-size: 18px;
+	margin-right: 8px;
+	font-size: 18px;
 }
 
 .start-btn {
-    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
-    border: none;
+	background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+	border: none;
 }
 
 .stop-btn {
-    border-radius: 12px;
+	border-radius: 12px;
+	width: 100% !important;
 }
 
 .quick-stats {
@@ -1314,7 +1349,8 @@ onDeactivated(() => {
 	color: var(--text-primary);
 }
 
-/* 导入联系人信息 */
+/* 目标联系人信息 */
+.target-contacts-info,
 .imported-contacts-info {
 	display: flex;
 	align-items: center;

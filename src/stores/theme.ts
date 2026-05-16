@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 
-type ThemeName = 'default' | 'purple' | 'green' | 'orange'
+type ThemeName = 'default' | 'purple' | 'green' | 'orange' | 'pink'
 
 const STORAGE_KEY_THEME = 'wa-theme'
 const STORAGE_KEY_MODE = 'wa-mode'
@@ -10,13 +10,14 @@ const THEME_LABELS: Record<ThemeName, string> = {
   default: '深蓝',
   purple: '极紫',
   green: '翠绿',
-  orange: '暖橙'
+  orange: '暖橙',
+  pink: '粉色'
 }
 
 function loadTheme(): ThemeName {
   try {
     const stored = localStorage.getItem(STORAGE_KEY_THEME)
-    if (stored && ['default', 'purple', 'green', 'orange'].includes(stored)) {
+    if (stored && ['default', 'purple', 'green', 'orange', 'pink'].includes(stored)) {
       return stored as ThemeName
     }
   } catch {}

@@ -21,10 +21,15 @@ const { logout, initClient } = require('./services/client-manager');
 
 const apiLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 100,
+    max: 1000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { success: false, error: 'Too many requests, please try again later.' },
+    skip: (req) => {
+        // 跳过本地请求（Tauri 桌面应用和本地开发）
+        const ip = req.ip || req.connection.remoteAddress || '';
+        return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+    },
 });
 
 function jsonResponse(res, statusCode, data) {

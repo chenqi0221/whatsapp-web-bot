@@ -6,14 +6,24 @@ pub async fn start_broadcast(options: BroadcastOptions) -> Result<serde_json::Va
     let client = reqwest::Client::new();
     let url = format!("{}/api/broadcast", get_node_api_url());
     
+    println!("[start_broadcast] Starting broadcast with options: {:?}", options);
+    
     let response = client
         .post(&url)
         .json(&options)
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            println!("[start_broadcast] Request failed: {}", e);
+            e.to_string()
+        })?;
     
-    let data: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    let data: serde_json::Value = response.json().await.map_err(|e| {
+        println!("[start_broadcast] JSON parse failed: {}", e);
+        e.to_string()
+    })?;
+    
+    println!("[start_broadcast] Response: {:?}", data);
     Ok(data)
 }
 

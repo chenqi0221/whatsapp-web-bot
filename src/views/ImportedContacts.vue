@@ -311,7 +311,7 @@ import {
   Document,
   FolderOpened,
 } from '@element-plus/icons-vue'
-import { open } from '@tauri-apps/api/dialog'
+import { open } from '@tauri-apps/plugin-dialog'
 import { importedContactsApi } from '@/api/tauri'
 import type { ImportedContact } from '@/api/tauri'
 
