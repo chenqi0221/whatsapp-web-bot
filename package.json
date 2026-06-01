@@ -22,7 +22,7 @@
     "pinia": "^2.1.0",
     "terser": "^5.47.1",
     "vue": "^3.4.0",
-    "vue-router": "^4.2.0"
+    "vue-router": "^5.1.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",
