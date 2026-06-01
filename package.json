@@ -19,7 +19,7 @@
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "element-plus": "^2.5.0",
-    "pinia": "^2.1.0",
+    "pinia": "^3.0.4",
     "terser": "^5.47.1",
     "vue": "^3.4.0",
     "vue-router": "^4.2.0"
